@@ -90,7 +90,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.textInput.Reset()
 				m.gameLog += fmt.Sprintf("\n> %s\n", action)
-				m.viewport.SetContent(m.gameLog)
+				m.viewport.SetContent(m.renderLog())
 				m.viewport.GotoBottom()
 				return m, m.processTurn(action)
 			}
@@ -102,7 +102,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.Width = msg.Width
 		m.viewport.Height = msg.Height - 6
 		if m.state == statePlaying {
-			m.viewport.SetContent(m.gameLog)
+			m.viewport.SetContent(m.renderLog())
 		}
 
 	case worldGeneratedMsg:
@@ -112,7 +112,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.viewport.Width == 0 {
 			m.viewport = viewport.New(m.width, m.height-6)
 		}
-		m.viewport.SetContent(m.gameLog)
+		m.viewport.SetContent(m.renderLog())
 		m.textInput.Placeholder = "What do you do?"
 		m.textInput.Reset()
 		m.session.Save("current")
@@ -126,7 +126,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.lastOutcome = msg.outcome
 		m.gameLog += fmt.Sprintf("\n%s\n", msg.outcome)
-		m.viewport.SetContent(m.gameLog)
+		m.viewport.SetContent(m.renderLog())
 		m.viewport.GotoBottom()
 		m.session.Save("current")
 		return m, nil
@@ -174,6 +174,10 @@ func (m model) View() string {
 	}
 
 	return "\n" + s + "\n"
+}
+
+func (m model) renderLog() string {
+	return lipgloss.NewStyle().Width(m.width).Render(m.gameLog)
 }
 
 func (m model) generateWorld(hint string) tea.Cmd {
