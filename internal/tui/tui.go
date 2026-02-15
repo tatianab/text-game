@@ -89,7 +89,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				m.textInput.Reset()
-				m.gameLog += fmt.Sprintf("\n> %s\n", action)
+				m.gameLog += fmt.Sprintf("\n\n> %s\n\n", action)
 				m.viewport.SetContent(m.renderLog())
 				m.viewport.GotoBottom()
 				return m, m.processTurn(action)
@@ -108,7 +108,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case worldGeneratedMsg:
 		m.session = msg.session
 		m.state = statePlaying
-		m.gameLog = fmt.Sprintf("World: %s\n\n%s\n", m.session.State.CurrentLocation, m.session.World.Description)
+		m.gameLog = fmt.Sprintf("World: %s\n\n%s\n\n", m.session.State.CurrentLocation, m.session.World.Description)
 		if m.viewport.Width == 0 {
 			m.viewport = viewport.New(m.width, m.height-6)
 		}
@@ -125,7 +125,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.lastOutcome = msg.outcome
-		m.gameLog += fmt.Sprintf("\n%s\n", msg.outcome)
+		m.gameLog += fmt.Sprintf("\n%s\n\n", msg.outcome)
 		m.viewport.SetContent(m.renderLog())
 		m.viewport.GotoBottom()
 		m.session.Save("current")

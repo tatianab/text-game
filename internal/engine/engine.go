@@ -38,6 +38,9 @@ func (e *Engine) GenerateWorld(ctx context.Context, hint string) (*models.GameSe
 	prompt := fmt.Sprintf(`Create a text-based adventure game based on this hint: "%s".
 If the hint is "random", pick a unique and interesting theme.
 
+Use short, punchy paragraphs for the world description. 
+Use double newlines between paragraphs for readability.
+
 Output the initial game state in the following YAML format:
 
 world:
@@ -105,6 +108,9 @@ History of previous turns:
 The player takes the following action: "%s"
 
 Based on the world rules and the player's action, describe what happens and update the game state.
+Use short, punchy paragraphs for the description. 
+Use double newlines between paragraphs for readability.
+
 Output your response in the following YAML format:
 
 outcome: "Narrative description of what happened"
