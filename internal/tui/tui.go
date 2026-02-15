@@ -40,6 +40,8 @@ type model struct {
 	width       int
 	height      int
 	lastOutcome string
+	lastTabIdx  int
+	lastSearch  string
 }
 
 var (
@@ -82,9 +84,10 @@ func NewModel(eng *engine.Engine) model {
 	ta.ShowLineNumbers = false
 
 	return model{
-		state:    stateInputHint,
-		engine:   eng,
-		textArea: ta,
+		state:      stateInputHint,
+		engine:     eng,
+		textArea:   ta,
+		lastTabIdx: -1,
 	}
 }
 
@@ -110,9 +113,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if msg.Type != tea.KeyTab {
+			m.lastTabIdx = -1
+			m.lastSearch = ""
+		}
+
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
+
+		case tea.KeyTab:
+			if m.state == stateInputHint {
+				val := m.textArea.Value()
+				if strings.HasPrefix(val, "/load ") {
+					if m.lastSearch == "" {
+						m.lastSearch = strings.TrimPrefix(val, "/load ")
+					}
+					
+					saves, _ := models.ListSessions()
+					var matches []string
+					for _, s := range saves {
+						if strings.HasPrefix(s, m.lastSearch) {
+							matches = append(matches, s)
+						}
+					}
+
+					if len(matches) > 0 {
+						m.lastTabIdx = (m.lastTabIdx + 1) % len(matches)
+						m.textArea.SetValue("/load " + matches[m.lastTabIdx])
+						m.textArea.CursorEnd()
+						return m, nil
+					}
+				}
+			}
 
 		case tea.KeyEnter:
 			if m.state == stateInputHint {
@@ -280,7 +313,7 @@ func (m model) View() string {
 		saves, _ := models.ListSessions()
 		savesList := ""
 		if len(saves) > 0 {
-			savesList = "\nOr load a previous game: /load <name>\nAvailable saves: " + strings.Join(saves, ", ") + "\n"
+			savesList = "\nOr load a previous game: /load <name> (Press Tab to auto-complete)\nAvailable saves: " + strings.Join(saves, ", ") + "\n"
 		}
 
 		welcomeText := fmt.Sprintf(
