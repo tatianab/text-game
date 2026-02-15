@@ -40,6 +40,8 @@ If the hint is "random", pick a unique and interesting theme.
 
 Use short, punchy paragraphs for the world description. 
 Use double newlines between paragraphs for readability.
+Use markdown **bold** to highlight important objects, locations, or actions.
+Use double quotes "like this" for any spoken dialogue.
 
 Output the initial game state in the following YAML format (use | for multi-line strings):
 
@@ -119,6 +121,8 @@ The player takes the following action: "%s"
 Based on the world rules and the player's action, describe what happens and update the game state.
 Use short, punchy paragraphs for the description. 
 Use double newlines between paragraphs for readability.
+Use markdown **bold** to highlight important objects, locations, or actions.
+Use double quotes "like this" for any spoken dialogue.
 
 Output your response in the following YAML format (use | for multi-line strings):
 

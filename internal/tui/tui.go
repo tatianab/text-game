@@ -72,6 +72,14 @@ var (
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF5F5F")).
 			Bold(true)
+
+	dialogueStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#87D7AF")). // Light green/cyan
+			Italic(true)
+
+	boldStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#FFFFFF"))
 )
 
 func NewModel(eng *engine.Engine) model {
@@ -415,7 +423,8 @@ func (m model) renderLog() string {
 		if entry.IsUser {
 			styled = userStyle.Width(logWidth).Render("> " + entry.Text)
 		} else {
-			styled = gameStyle.Width(logWidth).Render(entry.Text)
+			// Parse for bold and dialogue
+			styled = m.styleGameText(entry.Text, logWidth)
 		}
 		b.WriteString(styled)
 		if i < len(m.history)-1 {
@@ -424,6 +433,64 @@ func (m model) renderLog() string {
 	}
 
 	return b.String()
+}
+
+func (m model) styleGameText(text string, width int) string {
+	// 1. First, apply wrapping to the raw text to ensure we work with the right layout
+	wrapped := lipgloss.NewStyle().Width(width).Render(text)
+	
+	// 2. Simple parser for **bold** and "dialogue"
+	// Note: This is a very basic implementation. 
+	// A more robust way would be to use a proper markdown parser,
+	// but for this prototype, we'll do literal replacements.
+	
+	lines := strings.Split(wrapped, "\n")
+	var result []string
+	
+	for _, line := range lines {
+		// Replace bold
+		for {
+			start := strings.Index(line, "**")
+			if start == -1 {
+				break
+			}
+			end := strings.Index(line[start+2:], "**")
+			if end == -1 {
+				break
+			}
+			end += start + 2
+			
+			content := line[start+2 : end]
+			styled := boldStyle.Render(content)
+			line = line[:start] + styled + line[end+2:]
+		}
+		
+		// Replace dialogue (text within double quotes)
+		// We use a simple toggle to handle multiple quotes in a line
+		var newLine strings.Builder
+		inQuote := false
+		startIdx := 0
+		for i := 0; i < len(line); i++ {
+			if line[i] == '"' {
+				if !inQuote {
+					newLine.WriteString(line[startIdx:i])
+					newLine.WriteByte('"')
+					inQuote = true
+					startIdx = i + 1
+				} else {
+					content := line[startIdx:i]
+					newLine.WriteString(dialogueStyle.Render(content))
+					newLine.WriteByte('"')
+					inQuote = false
+					startIdx = i + 1
+				}
+			}
+		}
+		newLine.WriteString(line[startIdx:])
+		result = append(result, newLine.String())
+	}
+	
+	return strings.Join(result, "\n")
 }
 
 func (m model) generateWorld(hint string) tea.Cmd {
