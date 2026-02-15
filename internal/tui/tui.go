@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -22,14 +23,19 @@ const (
 	stateError
 )
 
+type logEntry struct {
+	IsUser bool
+	Text   string
+}
+
 type model struct {
 	state       sessionState
 	engine      *engine.Engine
 	session     *models.GameSession
-	textInput   textinput.Model
+	textArea    textarea.Model
 	viewport    viewport.Model
 	err         error
-	gameLog     string
+	history     []logEntry
 	width       int
 	height      int
 	lastOutcome string
@@ -62,21 +68,23 @@ var (
 )
 
 func NewModel(eng *engine.Engine) model {
-	ti := textinput.New()
-	ti.Placeholder = "Enter a hint or 'random'..."
-	ti.Focus()
-	ti.CharLimit = 156
-	ti.Width = 40
+	ta := textarea.New()
+	ta.Placeholder = "Enter a hint or 'random'..."
+	ta.Focus()
+	ta.CharLimit = 156
+	ta.SetWidth(40)
+	ta.SetHeight(1)
+	ta.ShowLineNumbers = false
 
 	return model{
-		state:     stateInputHint,
-		engine:    eng,
-		textInput: ti,
+		state:    stateInputHint,
+		engine:   eng,
+		textArea: ta,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return textinput.Blink
+	return textarea.Blink
 }
 
 type worldGeneratedMsg struct {
@@ -103,7 +111,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyEnter:
 			if m.state == stateInputHint {
-				hint := m.textInput.Value()
+				hint := strings.TrimSpace(m.textArea.Value())
 				if hint == "" {
 					hint = "random"
 				}
@@ -111,26 +119,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.generateWorld(hint)
 			}
 			if m.state == statePlaying {
-				action := m.textInput.Value()
+				action := strings.TrimSpace(m.textArea.Value())
 				if action == "" {
 					return m, nil
 				}
-				m.textInput.Reset()
+				m.textArea.Reset()
 
 				if action == "/quit" {
 					return m, tea.Quit
 				}
 				if action == "/restart" {
 					m.state = stateInputHint
-					m.gameLog = ""
+					m.history = nil
 					m.session = nil
-					m.textInput.Placeholder = "Enter a hint or 'random'..."
+					m.textArea.Placeholder = "Enter a hint or 'random'..."
+					m.textArea.SetHeight(1)
 					return m, nil
 				}
 
-				logWidth := int(float64(m.width) * 0.75)
-				styledAction := userStyle.Width(logWidth).Render("> " + action)
-				m.gameLog += "\n\n" + styledAction + "\n\n"
+				m.history = append(m.history, logEntry{IsUser: true, Text: action})
 				m.viewport.SetContent(m.renderLog())
 				m.viewport.GotoBottom()
 				return m, m.processTurn(action)
@@ -141,7 +148,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.viewport.Width = int(float64(msg.Width) * 0.75)
-		m.viewport.Height = msg.Height - 6
+		m.viewport.Height = msg.Height - 8
+		m.textArea.SetWidth(msg.Width - 4)
 		if m.state == statePlaying {
 			m.viewport.SetContent(m.renderLog())
 		}
@@ -149,16 +157,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case worldGeneratedMsg:
 		m.session = msg.session
 		m.state = statePlaying
+		m.history = append(m.history, logEntry{
+			IsUser: false,
+			Text:   fmt.Sprintf("World: %s\n\n%s", m.session.State.CurrentLocation, m.session.World.Description),
+		})
+
 		logWidth := int(float64(m.width) * 0.75)
-		header := gameStyle.Bold(true).Render("World: " + m.session.State.CurrentLocation)
-		description := gameStyle.Width(logWidth).Render(m.session.World.Description)
-		m.gameLog = header + "\n\n" + description + "\n\n"
 		if m.viewport.Width == 0 {
-			m.viewport = viewport.New(logWidth, m.height-6)
+			m.viewport = viewport.New(logWidth, m.height-8)
 		}
 		m.viewport.SetContent(m.renderLog())
-		m.textInput.Placeholder = "What do you do?"
-		m.textInput.Reset()
+		m.textArea.Placeholder = "What do you do?"
+		m.textArea.Reset()
+		m.textArea.SetHeight(3)
 		m.session.Save("current")
 		return m, nil
 
@@ -169,9 +180,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.lastOutcome = msg.outcome
-		logWidth := int(float64(m.width) * 0.75)
-		styledOutcome := gameStyle.Width(logWidth).Render(msg.outcome)
-		m.gameLog += styledOutcome + "\n\n"
+		m.history = append(m.history, logEntry{IsUser: false, Text: msg.outcome})
 		m.viewport.SetContent(m.renderLog())
 		m.viewport.GotoBottom()
 		m.session.Save("current")
@@ -184,7 +193,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.state == stateInputHint || m.state == statePlaying {
-		m.textInput, cmd = m.textInput.Update(msg)
+		m.textArea, cmd = m.textArea.Update(msg)
 		return m, cmd
 	}
 
@@ -199,7 +208,7 @@ func (m model) View() string {
 		s = fmt.Sprintf(
 			"Welcome to the Text Game Generator!\n\n%s\n\n%s",
 			"Give me a hint about the world you want to play in:",
-			m.textInput.View(),
+			m.textArea.View(),
 		)
 
 	case stateLoading:
@@ -219,7 +228,7 @@ func (m model) View() string {
 
 		s = lipgloss.JoinVertical(lipgloss.Left,
 			mainView,
-			"\n"+m.textInput.View(),
+			"\n"+m.textArea.View(),
 			"\n"+help,
 		)
 
@@ -236,14 +245,14 @@ func (m model) renderState() string {
 	}
 
 	state := m.session.State
-	
+
 	// Location
 	location := titleStyle.Render("LOCATION") + "\n" + state.CurrentLocation + "\n\n"
 
 	// Stats
 	statsTitle := titleStyle.Render("STATS") + "\n"
 	stats := fmt.Sprintf("Health: %s\nProgress: %s\n", state.Health, state.Progress)
-	
+
 	var keys []string
 	for k := range state.Stats {
 		if k != "health" && k != "progress" {
@@ -269,13 +278,29 @@ func (m model) renderState() string {
 	}
 
 	content := location + statsTitle + stats + invTitle + inventory
-	
+
 	stateWidth := int(float64(m.width) * 0.23) // Leave some room for padding
 	return stateStyle.Width(stateWidth).Height(m.viewport.Height).Render(content)
 }
 
 func (m model) renderLog() string {
-	return m.gameLog
+	var b strings.Builder
+	logWidth := int(float64(m.width) * 0.75)
+
+	for i, entry := range m.history {
+		var styled string
+		if entry.IsUser {
+			styled = userStyle.Width(logWidth).Render("> " + entry.Text)
+		} else {
+			styled = gameStyle.Width(logWidth).Render(entry.Text)
+		}
+		b.WriteString(styled)
+		if i < len(m.history)-1 {
+			b.WriteString("\n\n")
+		}
+	}
+
+	return b.String()
 }
 
 func (m model) generateWorld(hint string) tea.Cmd {
