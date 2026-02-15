@@ -43,6 +43,10 @@ var (
 
 	gameStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFFFFF"))
+
+	helpStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#888888")).
+			Italic(true)
 )
 
 func NewModel(eng *engine.Engine) model {
@@ -100,6 +104,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				m.textInput.Reset()
+
+				if action == "/quit" {
+					return m, tea.Quit
+				}
+				if action == "/restart" {
+					m.state = stateInputHint
+					m.gameLog = ""
+					m.session = nil
+					m.textInput.Placeholder = "Enter a hint or 'random'..."
+					return m, nil
+				}
+
 				styledAction := userStyle.Width(m.width).Render("> " + action)
 				m.gameLog += "\n\n" + styledAction + "\n\n"
 				m.viewport.SetContent(m.renderLog())
@@ -178,10 +194,13 @@ func (m model) View() string {
 		stats := fmt.Sprintf("Health: %s | Progress: %s | Location: %s", 
 			m.session.State.Health, m.session.State.Progress, m.session.State.CurrentLocation)
 		
+		help := helpStyle.Render("Commands: /restart, /quit, or just type what you want to do.")
+
 		s = lipgloss.JoinVertical(lipgloss.Left,
 			m.viewport.View(),
 			"\n"+stats,
 			"\n"+m.textInput.View(),
+			"\n"+help,
 		)
 
 	case stateError:
