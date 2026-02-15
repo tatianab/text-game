@@ -35,6 +35,7 @@ type model struct {
 	textArea    textarea.Model
 	viewport    viewport.Model
 	err         error
+	inputErr    string
 	history     []logEntry
 	width       int
 	height      int
@@ -153,10 +154,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, tea.Quit
 					}
 					// Unrecognized or malformed command on startup
-					m.err = fmt.Errorf("unrecognized command: %s. Valid commands: /load <name>, /quit", hint)
-					m.state = stateError
+					m.inputErr = fmt.Sprintf("unrecognized command: %s. Valid commands: /load <name>, /quit", hint)
+					m.textArea.Reset()
 					return m, nil
 				}
+				m.inputErr = ""
 				if hint == "" {
 					hint = "random"
 				}
@@ -287,7 +289,11 @@ func (m model) View() string {
 			savesList,
 		)
 
-		s = wrapStyle.Render(welcomeText) + "\n" + m.textArea.View()
+		s = wrapStyle.Render(welcomeText)
+		if m.inputErr != "" {
+			s += "\n\n" + errorStyle.Render(m.inputErr)
+		}
+		s += "\n" + m.textArea.View()
 
 	case stateLoading:
 		s = wrapStyle.Render("\n  Generating your world... please wait.\n")
