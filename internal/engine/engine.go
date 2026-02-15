@@ -22,7 +22,7 @@ func NewEngine(ctx context.Context, apiKey string) (*Engine, error) {
 		return nil, err
 	}
 
-	model := client.GenerativeModel("gemini-1.5-flash")
+	model := client.GenerativeModel("gemini-2.5-flash")
 	// Ensure we get structured output as much as possible, though we'll parse YAML.
 	return &Engine{
 		client: client,
