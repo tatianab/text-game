@@ -34,6 +34,17 @@ type model struct {
 	lastOutcome string
 }
 
+var (
+	userStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#EEEEEE")).
+			Background(lipgloss.Color("#5F5F87")).
+			Bold(true).
+			PaddingLeft(1)
+
+	gameStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFFFFF"))
+)
+
 func NewModel(eng *engine.Engine) model {
 	ti := textinput.New()
 	ti.Placeholder = "Enter a hint or 'random'..."
@@ -89,7 +100,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				m.textInput.Reset()
-				m.gameLog += fmt.Sprintf("\n\n> %s\n\n", action)
+				styledAction := userStyle.Width(m.width).Render("> " + action)
+				m.gameLog += "\n\n" + styledAction + "\n\n"
 				m.viewport.SetContent(m.renderLog())
 				m.viewport.GotoBottom()
 				return m, m.processTurn(action)
@@ -108,7 +120,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case worldGeneratedMsg:
 		m.session = msg.session
 		m.state = statePlaying
-		m.gameLog = fmt.Sprintf("World: %s\n\n%s\n\n", m.session.State.CurrentLocation, m.session.World.Description)
+		header := gameStyle.Bold(true).Render("World: " + m.session.State.CurrentLocation)
+		description := gameStyle.Width(m.width).Render(m.session.World.Description)
+		m.gameLog = header + "\n\n" + description + "\n\n"
 		if m.viewport.Width == 0 {
 			m.viewport = viewport.New(m.width, m.height-6)
 		}
@@ -125,7 +139,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.lastOutcome = msg.outcome
-		m.gameLog += fmt.Sprintf("\n%s\n\n", msg.outcome)
+		styledOutcome := gameStyle.Width(m.width).Render(msg.outcome)
+		m.gameLog += styledOutcome + "\n\n"
 		m.viewport.SetContent(m.renderLog())
 		m.viewport.GotoBottom()
 		m.session.Save("current")
@@ -177,7 +192,7 @@ func (m model) View() string {
 }
 
 func (m model) renderLog() string {
-	return lipgloss.NewStyle().Width(m.width).Render(m.gameLog)
+	return m.gameLog
 }
 
 func (m model) generateWorld(hint string) tea.Cmd {
