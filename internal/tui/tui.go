@@ -436,61 +436,53 @@ func (m model) renderLog() string {
 }
 
 func (m model) styleGameText(text string, width int) string {
-	// 1. First, apply wrapping to the raw text to ensure we work with the right layout
-	wrapped := lipgloss.NewStyle().Width(width).Render(text)
-	
-	// 2. Simple parser for **bold** and "dialogue"
-	// Note: This is a very basic implementation. 
-	// A more robust way would be to use a proper markdown parser,
-	// but for this prototype, we'll do literal replacements.
-	
-	lines := strings.Split(wrapped, "\n")
-	var result []string
-	
-	for _, line := range lines {
-		// Replace bold
-		for {
-			start := strings.Index(line, "**")
-			if start == -1 {
-				break
+	// 1. Simple parser for **bold** and "dialogue" that handles the entire text block.
+	// This ensures state (like being in a quote) is maintained across newlines.
+
+	var b strings.Builder
+	inQuote := false
+	inBold := false
+
+	for i := 0; i < len(text); i++ {
+		// Handle Bold **
+		if i+1 < len(text) && text[i] == '*' && text[i+1] == '*' {
+			if !inBold {
+				b.WriteString(boldStyle.String())
+				inBold = true
+			} else {
+				b.WriteString(lipgloss.NewStyle().UnsetBold().UnsetForeground().String())
+				inBold = false
 			}
-			end := strings.Index(line[start+2:], "**")
-			if end == -1 {
-				break
-			}
-			end += start + 2
-			
-			content := line[start+2 : end]
-			styled := boldStyle.Render(content)
-			line = line[:start] + styled + line[end+2:]
+			i++ // Skip the second asterisk
+			continue
 		}
-		
-		// Replace dialogue (text within double quotes)
-		// We use a simple toggle to handle multiple quotes in a line
-		var newLine strings.Builder
-		inQuote := false
-		startIdx := 0
-		for i := 0; i < len(line); i++ {
-			if line[i] == '"' {
-				if !inQuote {
-					newLine.WriteString(line[startIdx:i])
-					newLine.WriteByte('"')
-					inQuote = true
-					startIdx = i + 1
-				} else {
-					content := line[startIdx:i]
-					newLine.WriteString(dialogueStyle.Render(content))
-					newLine.WriteByte('"')
-					inQuote = false
-					startIdx = i + 1
-				}
+
+		// Handle Dialogue "
+		if text[i] == '"' {
+			b.WriteByte('"')
+			if !inQuote {
+				b.WriteString(dialogueStyle.String())
+				inQuote = true
+			} else {
+				b.WriteString(lipgloss.NewStyle().UnsetItalic().UnsetForeground().String())
+				inQuote = false
 			}
+			continue
 		}
-		newLine.WriteString(line[startIdx:])
-		result = append(result, newLine.String())
+
+		b.WriteByte(text[i])
 	}
-	
-	return strings.Join(result, "\n")
+
+	// Close any dangling styles just in case
+	if inBold || inQuote {
+		b.WriteString(lipgloss.NewStyle().UnsetBold().UnsetItalic().UnsetForeground().String())
+	}
+
+	styled := b.String()
+
+	// 2. Apply wrapping to the styled text. 
+	// Lipgloss is aware of ANSI codes and won't count them toward the width.
+	return lipgloss.NewStyle().Width(width).Render(styled)
 }
 
 func (m model) generateWorld(hint string) tea.Cmd {
