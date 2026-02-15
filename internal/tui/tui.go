@@ -47,6 +47,17 @@ var (
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#888888")).
 			Italic(true)
+
+	stateStyle = lipgloss.NewStyle().
+			Border(lipgloss.NormalBorder(), false, false, false, true).
+			BorderForeground(lipgloss.Color("#3C3C3C")).
+			PaddingLeft(2).
+			Foreground(lipgloss.Color("#AAAAAA"))
+
+	titleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FFA500")).
+			Bold(true).
+			Underline(true)
 )
 
 func NewModel(eng *engine.Engine) model {
@@ -116,7 +127,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 
-				styledAction := userStyle.Width(m.width).Render("> " + action)
+				logWidth := int(float64(m.width) * 0.75)
+				styledAction := userStyle.Width(logWidth).Render("> " + action)
 				m.gameLog += "\n\n" + styledAction + "\n\n"
 				m.viewport.SetContent(m.renderLog())
 				m.viewport.GotoBottom()
@@ -127,7 +139,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.viewport.Width = msg.Width
+		m.viewport.Width = int(float64(msg.Width) * 0.75)
 		m.viewport.Height = msg.Height - 6
 		if m.state == statePlaying {
 			m.viewport.SetContent(m.renderLog())
@@ -136,11 +148,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case worldGeneratedMsg:
 		m.session = msg.session
 		m.state = statePlaying
+		logWidth := int(float64(m.width) * 0.75)
 		header := gameStyle.Bold(true).Render("World: " + m.session.State.CurrentLocation)
-		description := gameStyle.Width(m.width).Render(m.session.World.Description)
+		description := gameStyle.Width(logWidth).Render(m.session.World.Description)
 		m.gameLog = header + "\n\n" + description + "\n\n"
 		if m.viewport.Width == 0 {
-			m.viewport = viewport.New(m.width, m.height-6)
+			m.viewport = viewport.New(logWidth, m.height-6)
 		}
 		m.viewport.SetContent(m.renderLog())
 		m.textInput.Placeholder = "What do you do?"
@@ -155,7 +168,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.lastOutcome = msg.outcome
-		styledOutcome := gameStyle.Width(m.width).Render(msg.outcome)
+		logWidth := int(float64(m.width) * 0.75)
+		styledOutcome := gameStyle.Width(logWidth).Render(msg.outcome)
 		m.gameLog += styledOutcome + "\n\n"
 		m.viewport.SetContent(m.renderLog())
 		m.viewport.GotoBottom()
@@ -191,14 +205,19 @@ func (m model) View() string {
 		s = "\n  Generating your world... please wait.\n"
 
 	case statePlaying:
-		stats := fmt.Sprintf("Health: %s | Progress: %s | Location: %s", 
-			m.session.State.Health, m.session.State.Progress, m.session.State.CurrentLocation)
-		
+		logView := m.viewport.View()
+		stateView := m.renderState()
+
+		// Join log and state horizontally
+		mainView := lipgloss.JoinHorizontal(lipgloss.Top,
+			logView,
+			stateView,
+		)
+
 		help := helpStyle.Render("Commands: /restart, /quit, or just type what you want to do.")
 
 		s = lipgloss.JoinVertical(lipgloss.Left,
-			m.viewport.View(),
-			"\n"+stats,
+			mainView,
 			"\n"+m.textInput.View(),
 			"\n"+help,
 		)
@@ -208,6 +227,43 @@ func (m model) View() string {
 	}
 
 	return "\n" + s + "\n"
+}
+
+func (m model) renderState() string {
+	if m.session == nil {
+		return ""
+	}
+
+	state := m.session.State
+	
+	// Location
+	location := titleStyle.Render("LOCATION") + "\n" + state.CurrentLocation + "\n\n"
+
+	// Stats
+	statsTitle := titleStyle.Render("STATS") + "\n"
+	stats := fmt.Sprintf("Health: %s\nProgress: %s\n", state.Health, state.Progress)
+	for k, v := range state.Stats {
+		if k != "health" && k != "progress" {
+			stats += fmt.Sprintf("%s: %s\n", k, v)
+		}
+	}
+	stats += "\n"
+
+	// Inventory
+	invTitle := titleStyle.Render("INVENTORY") + "\n"
+	inventory := ""
+	if len(state.Inventory) == 0 {
+		inventory = "(empty)"
+	} else {
+		for _, item := range state.Inventory {
+			inventory += "- " + item + "\n"
+		}
+	}
+
+	content := location + statsTitle + stats + invTitle + inventory
+	
+	stateWidth := int(float64(m.width) * 0.23) // Leave some room for padding
+	return stateStyle.Width(stateWidth).Height(m.viewport.Height).Render(content)
 }
 
 func (m model) renderLog() string {
