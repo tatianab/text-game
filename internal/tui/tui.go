@@ -20,7 +20,6 @@ const (
 	stateInputHint sessionState = iota
 	stateLoading
 	statePlaying
-	stateQuitting
 	stateError
 )
 
@@ -108,35 +107,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
-			if m.state == statePlaying {
-				m.state = stateQuitting
-				m.textArea.Reset()
-				m.textArea.Placeholder = "Type a name to save, or press Enter to quit without saving..."
-				m.textArea.SetHeight(1)
-				return m, nil
-			}
 			return m, tea.Quit
 
 		case tea.KeyEnter:
-			if m.state == stateQuitting {
-				action := strings.TrimSpace(m.textArea.Value())
-				m.textArea.Reset()
-				if action == "/cancel" {
-					m.state = statePlaying
-					m.textArea.Placeholder = "What do you do?"
-					m.textArea.SetHeight(3)
-					return m, nil
-				}
-				if action != "" {
-					err := m.session.Save(action)
-					if err != nil {
-						m.err = err
-						m.state = stateError
-						return m, nil
-					}
-				}
-				return m, tea.Quit
-			}
 			if m.state == stateInputHint {
 				hint := strings.TrimSpace(m.textArea.Value())
 				if strings.HasPrefix(hint, "/load ") {
@@ -153,7 +126,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.history = nil
 					m.history = append(m.history, logEntry{
 						IsUser: false,
-						Text:   fmt.Sprintf("World: %s\n\n%s", m.session.State.CurrentLocation, m.session.World.Description),
+						Text:   fmt.Sprintf("%s\nLocation: %s\n\n%s", m.session.World.Title, m.session.State.CurrentLocation, m.session.World.Description),
 					})
 					for _, entry := range m.session.History.Entries {
 						m.history = append(m.history, logEntry{IsUser: true, Text: entry.PlayerAction})
@@ -185,10 +158,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textArea.Reset()
 
 				if action == "/quit" {
-					m.state = stateQuitting
-					m.textArea.Placeholder = "Type a name to save, or press Enter to quit without saving..."
-					m.textArea.SetHeight(1)
-					return m, nil
+					return m, tea.Quit
 				}
 				if action == "/restart" {
 					m.state = stateInputHint
@@ -266,7 +236,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.state == stateInputHint || m.state == statePlaying || m.state == stateQuitting {
+	if m.state == stateInputHint || m.state == statePlaying {
 		m.textArea, cmd = m.textArea.Update(msg)
 		return m, cmd
 	}
@@ -296,13 +266,6 @@ func (m model) View() string {
 
 	case stateLoading:
 		s = wrapStyle.Render("\n  Generating your world... please wait.\n")
-
-	case stateQuitting:
-		quitText := fmt.Sprintf(
-			"Do you want to save your game before quitting?\n\n%s",
-			"- To save and quit: Type a save name and press Enter\n- To quit without saving: Just press Enter\n- To go back to the game: Type /cancel and press Enter",
-		)
-		s = wrapStyle.Render(quitText) + "\n\n" + m.textArea.View()
 
 	case statePlaying:
 		logView := m.viewport.View()
