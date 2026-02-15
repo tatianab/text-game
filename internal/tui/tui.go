@@ -119,9 +119,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case tea.KeyEnter:
 			if m.state == stateQuitting {
-				name := strings.TrimSpace(m.textArea.Value())
-				if name != "" {
-					err := m.session.Save(name)
+				action := strings.TrimSpace(m.textArea.Value())
+				m.textArea.Reset()
+				if action == "/cancel" {
+					m.state = statePlaying
+					m.textArea.Placeholder = "What do you do?"
+					m.textArea.SetHeight(3)
+					return m, nil
+				}
+				if action != "" {
+					err := m.session.Save(action)
 					if err != nil {
 						m.err = err
 						m.state = stateError
@@ -152,7 +159,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.history = append(m.history, logEntry{IsUser: true, Text: entry.PlayerAction})
 						m.history = append(m.history, logEntry{IsUser: false, Text: entry.Outcome})
 					}
-					
+
 					logWidth := int(float64(m.width) * 0.75)
 					if m.viewport.Width == 0 {
 						m.viewport = viewport.New(logWidth, m.height-8)
@@ -181,12 +188,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.state = stateQuitting
 					m.textArea.Placeholder = "Type a name to save, or press Enter to quit without saving..."
 					m.textArea.SetHeight(1)
-					return m, nil
-				}
-				if m.state == stateQuitting && action == "/cancel" {
-					m.state = statePlaying
-					m.textArea.Placeholder = "What do you do?"
-					m.textArea.SetHeight(3)
 					return m, nil
 				}
 				if action == "/restart" {
@@ -265,7 +266,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.state == stateInputHint || m.state == statePlaying {
+	if m.state == stateInputHint || m.state == statePlaying || m.state == stateQuitting {
 		m.textArea, cmd = m.textArea.Update(msg)
 		return m, cmd
 	}
