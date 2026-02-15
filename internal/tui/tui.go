@@ -65,6 +65,10 @@ var (
 			Foreground(lipgloss.Color("#FFA500")).
 			Bold(true).
 			Underline(true)
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF5F5F")).
+			Bold(true)
 )
 
 func NewModel(eng *engine.Engine) model {
@@ -112,36 +116,45 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			if m.state == stateInputHint {
 				hint := strings.TrimSpace(m.textArea.Value())
-				if strings.HasPrefix(hint, "/load ") {
-					name := strings.TrimPrefix(hint, "/load ")
-					session, err := models.LoadSession(name)
-					if err != nil {
-						m.err = err
-						m.state = stateError
+				if strings.HasPrefix(hint, "/") {
+					if strings.HasPrefix(hint, "/load ") {
+						name := strings.TrimPrefix(hint, "/load ")
+						session, err := models.LoadSession(name)
+						if err != nil {
+							m.err = err
+							m.state = stateError
+							return m, nil
+						}
+						m.session = session
+						m.state = statePlaying
+						// Reconstruct history
+						m.history = nil
+						m.history = append(m.history, logEntry{
+							IsUser: false,
+							Text:   fmt.Sprintf("%s\nLocation: %s\n\n%s", m.session.World.Title, m.session.State.CurrentLocation, m.session.World.Description),
+						})
+						for _, entry := range m.session.History.Entries {
+							m.history = append(m.history, logEntry{IsUser: true, Text: entry.PlayerAction})
+							m.history = append(m.history, logEntry{IsUser: false, Text: entry.Outcome})
+						}
+
+						logWidth := int(float64(m.width) * 0.75)
+						if m.viewport.Width == 0 {
+							m.viewport = viewport.New(logWidth, m.height-8)
+						}
+						m.viewport.SetContent(m.renderLog())
+						m.viewport.GotoBottom()
+						m.textArea.Placeholder = "What do you do?"
+						m.textArea.Reset()
+						m.textArea.SetHeight(3)
 						return m, nil
 					}
-					m.session = session
-					m.state = statePlaying
-					// Reconstruct history
-					m.history = nil
-					m.history = append(m.history, logEntry{
-						IsUser: false,
-						Text:   fmt.Sprintf("%s\nLocation: %s\n\n%s", m.session.World.Title, m.session.State.CurrentLocation, m.session.World.Description),
-					})
-					for _, entry := range m.session.History.Entries {
-						m.history = append(m.history, logEntry{IsUser: true, Text: entry.PlayerAction})
-						m.history = append(m.history, logEntry{IsUser: false, Text: entry.Outcome})
+					if hint == "/quit" {
+						return m, tea.Quit
 					}
-
-					logWidth := int(float64(m.width) * 0.75)
-					if m.viewport.Width == 0 {
-						m.viewport = viewport.New(logWidth, m.height-8)
-					}
-					m.viewport.SetContent(m.renderLog())
-					m.viewport.GotoBottom()
-					m.textArea.Placeholder = "What do you do?"
-					m.textArea.Reset()
-					m.textArea.SetHeight(3)
+					// Unrecognized or malformed command on startup
+					m.err = fmt.Errorf("unrecognized command: %s. Valid commands: /load <name>, /quit", hint)
+					m.state = stateError
 					return m, nil
 				}
 				if hint == "" {
@@ -157,25 +170,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.textArea.Reset()
 
-				if action == "/quit" {
-					return m, tea.Quit
-				}
-				if action == "/restart" {
-					m.state = stateInputHint
-					m.history = nil
-					m.session = nil
-					m.textArea.Placeholder = "Enter a hint or 'random'..."
-					m.textArea.SetHeight(1)
-					return m, nil
-				}
-				if strings.HasPrefix(action, "/save ") {
-					name := strings.TrimPrefix(action, "/save ")
-					err := m.session.Save(name)
-					if err != nil {
-						m.history = append(m.history, logEntry{IsUser: false, Text: "Failed to save: " + err.Error()})
-					} else {
-						m.history = append(m.history, logEntry{IsUser: false, Text: "Game saved as '" + name + "'"})
+				if strings.HasPrefix(action, "/") {
+					if action == "/quit" {
+						return m, tea.Quit
 					}
+					if action == "/restart" {
+						m.state = stateInputHint
+						m.history = nil
+						m.session = nil
+						m.textArea.Placeholder = "Enter a hint or 'random'..."
+						m.textArea.SetHeight(1)
+						return m, nil
+					}
+					if strings.HasPrefix(action, "/save ") {
+						name := strings.TrimPrefix(action, "/save ")
+						err := m.session.Save(name)
+						if err != nil {
+							m.history = append(m.history, logEntry{IsUser: false, Text: "Failed to save: " + err.Error()})
+						} else {
+							m.history = append(m.history, logEntry{IsUser: false, Text: "Game saved as '" + name + "'"})
+						}
+						m.viewport.SetContent(m.renderLog())
+						m.viewport.GotoBottom()
+						return m, nil
+					}
+
+					// Unrecognized command during play
+					errMsg := "Unrecognized command. Valid commands: /save <name>, /restart, /quit"
+					if action == "/save" {
+						errMsg = "Usage: /save <name>"
+					}
+					m.history = append(m.history, logEntry{IsUser: false, Text: errorStyle.Render(errMsg)})
 					m.viewport.SetContent(m.renderLog())
 					m.viewport.GotoBottom()
 					return m, nil
