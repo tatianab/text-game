@@ -278,6 +278,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	var s string
+	wrapStyle := lipgloss.NewStyle().Width(m.width)
 
 	switch m.state {
 	case stateInputHint:
@@ -287,22 +288,23 @@ func (m model) View() string {
 			savesList = "\nOr load a previous game: /load <name>\nAvailable saves: " + strings.Join(saves, ", ") + "\n"
 		}
 
-		s = fmt.Sprintf(
-			"Welcome to the Text Game Generator!\n\n%s\n%s\n%s",
+		welcomeText := fmt.Sprintf(
+			"Welcome to the Text Game Generator!\n\n%s\n%s",
 			"Give me a hint about the world you want to play in (e.g., 'cyberpunk detective', 'zombie kitchen'):",
 			savesList,
-			m.textArea.View(),
 		)
+
+		s = wrapStyle.Render(welcomeText) + "\n" + m.textArea.View()
 
 	case stateLoading:
-		s = "\n  Generating your world... please wait.\n"
+		s = wrapStyle.Render("\n  Generating your world... please wait.\n")
 
 	case stateQuitting:
-		s = fmt.Sprintf(
-			"Do you want to save your game before quitting?\n\n%s\n\n%s",
+		quitText := fmt.Sprintf(
+			"Do you want to save your game before quitting?\n\n%s",
 			"- To save and quit: Type a save name and press Enter\n- To quit without saving: Just press Enter\n- To go back to the game: Type /cancel and press Enter",
-			m.textArea.View(),
 		)
+		s = wrapStyle.Render(quitText) + "\n\n" + m.textArea.View()
 
 	case statePlaying:
 		logView := m.viewport.View()
@@ -323,7 +325,7 @@ func (m model) View() string {
 		)
 
 	case stateError:
-		s = fmt.Sprintf("\n  Error: %v\n\nPress Esc to quit.", m.err)
+		s = wrapStyle.Render(fmt.Sprintf("\n  Error: %v\n\nPress Esc to quit.", m.err))
 	}
 
 	return "\n" + s + "\n"
