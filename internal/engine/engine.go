@@ -44,6 +44,8 @@ Use double newlines between paragraphs for readability.
 Output the initial game state in the following YAML format (use | for multi-line strings):
 
 world:
+  title: "The Title of the Game"
+  short_name: "short-name-slug"
   description: |
     Detailed description of the world
   possibilities: ["action 1", "action 2"]

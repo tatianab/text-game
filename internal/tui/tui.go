@@ -233,7 +233,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = statePlaying
 		m.history = append(m.history, logEntry{
 			IsUser: false,
-			Text:   fmt.Sprintf("World: %s\n\n%s", m.session.State.CurrentLocation, m.session.World.Description),
+			Text:   fmt.Sprintf("%s\nLocation: %s\n\n%s", m.session.World.Title, m.session.State.CurrentLocation, m.session.World.Description),
 		})
 
 		logWidth := int(float64(m.width) * 0.75)
@@ -245,6 +245,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.textArea.Reset()
 		m.textArea.SetHeight(3)
 		m.session.Save("current")
+		m.session.Save(m.session.World.ShortName)
 		return m, nil
 
 	case turnProcessedMsg:
@@ -258,6 +259,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(m.renderLog())
 		m.viewport.GotoBottom()
 		m.session.Save("current")
+		m.session.Save(m.session.World.ShortName)
 		return m, nil
 
 	case errMsg:

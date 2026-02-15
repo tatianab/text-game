@@ -9,9 +9,11 @@ import (
 func TestGameSessionYAML(t *testing.T) {
 	session := &GameSession{
 		World: World{
-			Description: "A dark forest",
+			Title:         "The Hidden Manor",
+			ShortName:     "hidden-manor",
+			Description:   "A dark forest",
 			Possibilities: []string{"look", "walk"},
-			StateSchema: "health and inventory",
+			StateSchema:   "health and inventory",
 			WinConditions: "Find the key",
 		},
 		State: GameState{

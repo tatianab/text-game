@@ -2,6 +2,8 @@ package models
 
 // World represents the static (or semi-static) world definition.
 type World struct {
+	Title         string   `yaml:"title"`
+	ShortName     string   `yaml:"short_name"` // e.g., "hidden-manor"
 	Description   string   `yaml:"description"`
 	Possibilities []string `yaml:"possibilities"` // e.g., what sorts of actions a player can take
 	StateSchema   string   `yaml:"state_schema"`  // description of what sort of state will be held
