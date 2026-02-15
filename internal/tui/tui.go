@@ -20,6 +20,7 @@ const (
 	stateInputHint sessionState = iota
 	stateLoading
 	statePlaying
+	stateQuitting
 	stateError
 )
 
@@ -107,9 +108,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
+			if m.state == statePlaying {
+				m.state = stateQuitting
+				m.textArea.Reset()
+				m.textArea.Placeholder = "Type a name to save, or press Enter to quit without saving..."
+				m.textArea.SetHeight(1)
+				return m, nil
+			}
 			return m, tea.Quit
 
 		case tea.KeyEnter:
+			if m.state == stateQuitting {
+				name := strings.TrimSpace(m.textArea.Value())
+				if name != "" {
+					err := m.session.Save(name)
+					if err != nil {
+						m.err = err
+						m.state = stateError
+						return m, nil
+					}
+				}
+				return m, tea.Quit
+			}
 			if m.state == stateInputHint {
 				hint := strings.TrimSpace(m.textArea.Value())
 				if strings.HasPrefix(hint, "/load ") {
@@ -158,7 +178,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textArea.Reset()
 
 				if action == "/quit" {
-					return m, tea.Quit
+					m.state = stateQuitting
+					m.textArea.Placeholder = "Type a name to save, or press Enter to quit without saving..."
+					m.textArea.SetHeight(1)
+					return m, nil
+				}
+				if m.state == stateQuitting && action == "/cancel" {
+					m.state = statePlaying
+					m.textArea.Placeholder = "What do you do?"
+					m.textArea.SetHeight(3)
+					return m, nil
 				}
 				if action == "/restart" {
 					m.state = stateInputHint
@@ -264,6 +293,13 @@ func (m model) View() string {
 
 	case stateLoading:
 		s = "\n  Generating your world... please wait.\n"
+
+	case stateQuitting:
+		s = fmt.Sprintf(
+			"Do you want to save your game before quitting?\n\n%s\n\n%s",
+			"- To save and quit: Type a save name and press Enter\n- To quit without saving: Just press Enter\n- To go back to the game: Type /cancel and press Enter",
+			m.textArea.View(),
+		)
 
 	case statePlaying:
 		logView := m.viewport.View()
