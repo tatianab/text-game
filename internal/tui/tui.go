@@ -436,53 +436,66 @@ func (m model) renderLog() string {
 }
 
 func (m model) styleGameText(text string, width int) string {
-	// 1. Simple parser for **bold** and "dialogue" that handles the entire text block.
-	// This ensures state (like being in a quote) is maintained across newlines.
+	var final strings.Builder
+	var buf strings.Builder
 
-	var b strings.Builder
-	inQuote := false
 	inBold := false
+	inQuote := false
+
+	getStyle := func(b, q bool) lipgloss.Style {
+		if b && q {
+			return boldStyle.Copy().Inherit(dialogueStyle)
+		} else if b {
+			return boldStyle
+		} else if q {
+			return dialogueStyle
+		}
+		return gameStyle
+	}
+
+	lastStyle := getStyle(false, false)
+
+	flush := func() {
+		if buf.Len() > 0 {
+			final.WriteString(lastStyle.Render(buf.String()))
+			buf.Reset()
+		}
+	}
 
 	for i := 0; i < len(text); i++ {
 		// Handle Bold **
 		if i+1 < len(text) && text[i] == '*' && text[i+1] == '*' {
-			if !inBold {
-				b.WriteString(boldStyle.String())
-				inBold = true
-			} else {
-				b.WriteString(lipgloss.NewStyle().UnsetBold().UnsetForeground().String())
-				inBold = false
-			}
-			i++ // Skip the second asterisk
+			flush()
+			inBold = !inBold
+			lastStyle = getStyle(inBold, inQuote)
+			i++ // Skip second asterisk
 			continue
 		}
 
-		// Handle Dialogue "
+		// Handle Quote "
 		if text[i] == '"' {
-			b.WriteByte('"')
 			if !inQuote {
-				b.WriteString(dialogueStyle.String())
+				// Starting a quote
+				flush()
 				inQuote = true
+				lastStyle = getStyle(inBold, true)
+				buf.WriteByte('"')
 			} else {
-				b.WriteString(lipgloss.NewStyle().UnsetItalic().UnsetForeground().String())
+				// Ending a quote
+				buf.WriteByte('"')
+				flush()
 				inQuote = false
+				lastStyle = getStyle(inBold, false)
 			}
 			continue
 		}
 
-		b.WriteByte(text[i])
+		buf.WriteByte(text[i])
 	}
+	flush()
 
-	// Close any dangling styles just in case
-	if inBold || inQuote {
-		b.WriteString(lipgloss.NewStyle().UnsetBold().UnsetItalic().UnsetForeground().String())
-	}
-
-	styled := b.String()
-
-	// 2. Apply wrapping to the styled text. 
-	// Lipgloss is aware of ANSI codes and won't count them toward the width.
-	return lipgloss.NewStyle().Width(width).Render(styled)
+	// Wrap the fully styled text
+	return lipgloss.NewStyle().Width(width).Render(final.String())
 }
 
 func (m model) generateWorld(hint string) tea.Cmd {
