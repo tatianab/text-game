@@ -336,10 +336,17 @@ func (m model) renderState() string {
 		return ""
 	}
 
+	world := m.session.World
 	state := m.session.State
 
+	stateWidth := int(float64(m.width) * 0.23) // Leave some room for padding
+	wrapState := lipgloss.NewStyle().Width(stateWidth)
+
+	// Title
+	title := titleStyle.Render("TITLE") + "\n" + wrapState.Render(world.Title) + "\n\n"
+
 	// Location
-	location := titleStyle.Render("LOCATION") + "\n" + state.CurrentLocation + "\n\n"
+	location := titleStyle.Render("LOCATION") + "\n" + wrapState.Render(state.CurrentLocation) + "\n\n"
 
 	// Stats
 	statsTitle := titleStyle.Render("STATS") + "\n"
@@ -365,13 +372,12 @@ func (m model) renderState() string {
 		inventory = "(empty)"
 	} else {
 		for _, item := range state.Inventory {
-			inventory += "- " + item + "\n"
+			inventory += "- " + wrapState.Render(item) + "\n"
 		}
 	}
 
-	content := location + statsTitle + stats + invTitle + inventory
+	content := title + location + statsTitle + stats + invTitle + inventory
 
-	stateWidth := int(float64(m.width) * 0.23) // Leave some room for padding
 	return stateStyle.Width(stateWidth).Height(m.viewport.Height).Render(content)
 }
 
