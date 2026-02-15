@@ -1,17 +1,34 @@
 package models
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
 
-const SaveDir = ".saves"
+const (
+	SaveDir            = ".saves"
+	CurrentSaveVersion = "1"
+)
+
+type versionInfo struct {
+	Version string `yaml:"version"`
+}
 
 func (s *GameSession) Save(name string) error {
 	dir := filepath.Join(SaveDir, name)
 	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	// Save version.yaml
+	vData, err := yaml.Marshal(versionInfo{Version: CurrentSaveVersion})
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "version.yaml"), vData, 0644); err != nil {
 		return err
 	}
 
@@ -47,7 +64,20 @@ func (s *GameSession) Save(name string) error {
 
 func LoadSession(name string) (*GameSession, error) {
 	dir := filepath.Join(SaveDir, name)
-	
+
+	// Check version
+	vData, err := os.ReadFile(filepath.Join(dir, "version.yaml"))
+	if err != nil {
+		return nil, fmt.Errorf("could not read version info (save may be too old): %v", err)
+	}
+	var vInfo versionInfo
+	if err := yaml.Unmarshal(vData, &vInfo); err != nil {
+		return nil, err
+	}
+	if vInfo.Version != CurrentSaveVersion {
+		return nil, fmt.Errorf("incompatible save version: found %s, want %s", vInfo.Version, CurrentSaveVersion)
+	}
+
 	// Load world
 	worldData, err := os.ReadFile(filepath.Join(dir, "world.yaml"))
 	if err != nil {
@@ -98,9 +128,9 @@ func ListSessions() ([]string, error) {
 	var sessions []string
 	for _, entry := range entries {
 		if entry.IsDir() {
-			// Check if world.yaml exists as a marker for a valid session
-			worldPath := filepath.Join(SaveDir, entry.Name(), "world.yaml")
-			if _, err := os.Stat(worldPath); err == nil {
+			// Check if version.yaml exists as a marker for a valid session
+			vPath := filepath.Join(SaveDir, entry.Name(), "version.yaml")
+			if _, err := os.Stat(vPath); err == nil {
 				sessions = append(sessions, entry.Name())
 			}
 		}
