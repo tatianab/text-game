@@ -1,13 +1,33 @@
-// Package main contains the entry point for the game.
 package main
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/tatianab/text-game/internal/config"
+	"github.com/tatianab/text-game/internal/engine"
+	"github.com/tatianab/text-game/internal/tui"
+)
 
 func main() {
-	gameLoop()
-}
+	ctx := context.Background()
 
-func gameLoop() {
-	fmt.Println("Hello world!")
-	// TODO: add game loop
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	eng, err := engine.NewEngine(ctx, cfg.GeminiAPIKey)
+	if err != nil {
+		fmt.Printf("Error creating engine: %v\n", err)
+		os.Exit(1)
+	}
+	defer eng.Close()
+
+	if err := tui.Run(eng); err != nil {
+		fmt.Printf("Error running TUI: %v\n", err)
+		os.Exit(1)
+	}
 }

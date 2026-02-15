@@ -66,5 +66,3 @@ be hard for the user to "jailbreak" the game from the UI. For example,
 they shouldn't be able to ask for the secret win conditions and get
 them back. However, it's OK if they could go to the game files and
 find the secret win conditions.
-
-

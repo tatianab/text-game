@@ -5,8 +5,14 @@ Text-based game generator
 
 ## Play the game
 
-To play the game, from the repo root, run:
+1.  **Set your Gemini API key**: 
+    Obtain an API key from [Google AI Studio](https://aistudio.google.com/) and set it in your environment:
+    ```bash
+    export GEMINI_API_KEY=your_api_key_here
+    ```
 
-```bash
-$ go run cmd/game/main.go
-```
+2.  **Run the game**:
+    From the repo root, run:
+    ```bash
+    go run cmd/game/main.go
+    ```
