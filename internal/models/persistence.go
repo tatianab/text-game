@@ -3,7 +3,6 @@ package models
 import (
 	"os"
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -11,7 +10,8 @@ import (
 const SaveDir = ".saves"
 
 func (s *GameSession) Save(name string) error {
-	if err := os.MkdirAll(SaveDir, 0755); err != nil {
+	dir := filepath.Join(SaveDir, name)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
 
@@ -20,12 +20,12 @@ func (s *GameSession) Save(name string) error {
 		return err
 	}
 
-	path := filepath.Join(SaveDir, name+".yaml")
+	path := filepath.Join(dir, "game.yaml")
 	return os.WriteFile(path, data, 0644)
 }
 
 func LoadSession(name string) (*GameSession, error) {
-	path := filepath.Join(SaveDir, name+".yaml")
+	path := filepath.Join(SaveDir, name, "game.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -44,15 +44,18 @@ func ListSessions() ([]string, error) {
 		return []string{}, nil
 	}
 
-	files, err := os.ReadDir(SaveDir)
+	entries, err := os.ReadDir(SaveDir)
 	if err != nil {
 		return nil, err
 	}
 
 	var sessions []string
-	for _, f := range files {
-		if !f.IsDir() && filepath.Ext(f.Name()) == ".yaml" {
-			sessions = append(sessions, strings.TrimSuffix(f.Name(), ".yaml"))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			gamePath := filepath.Join(SaveDir, entry.Name(), "game.yaml")
+			if _, err := os.Stat(gamePath); err == nil {
+				sessions = append(sessions, entry.Name())
+			}
 		}
 	}
 	return sessions, nil
