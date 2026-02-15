@@ -122,8 +122,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						name := strings.TrimPrefix(hint, "/load ")
 						session, err := models.LoadSession(name)
 						if err != nil {
-							m.err = err
-							m.state = stateError
+							m.inputErr = fmt.Sprintf("failed to load '%s': %v", name, err)
+							m.textArea.Reset()
 							return m, nil
 						}
 						m.session = session
