@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -242,10 +243,17 @@ func (m model) renderState() string {
 	// Stats
 	statsTitle := titleStyle.Render("STATS") + "\n"
 	stats := fmt.Sprintf("Health: %s\nProgress: %s\n", state.Health, state.Progress)
-	for k, v := range state.Stats {
+	
+	var keys []string
+	for k := range state.Stats {
 		if k != "health" && k != "progress" {
-			stats += fmt.Sprintf("%s: %s\n", k, v)
+			keys = append(keys, k)
 		}
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		stats += fmt.Sprintf("%s: %s\n", k, state.Stats[k])
 	}
 	stats += "\n"
 
