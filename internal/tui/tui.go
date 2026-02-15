@@ -244,7 +244,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.textArea.Placeholder = "What do you do?"
 		m.textArea.Reset()
 		m.textArea.SetHeight(3)
-		m.session.Save("current")
 		m.session.Save(m.session.World.ShortName)
 		return m, nil
 
@@ -258,7 +257,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.history = append(m.history, logEntry{IsUser: false, Text: msg.outcome})
 		m.viewport.SetContent(m.renderLog())
 		m.viewport.GotoBottom()
-		m.session.Save("current")
 		m.session.Save(m.session.World.ShortName)
 		return m, nil
 
