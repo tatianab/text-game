@@ -93,6 +93,12 @@ func (e *Engine) ProcessTurn(ctx context.Context, session *models.GameSession, a
 	historyText := ""
 	for _, entry := range session.History.Entries {
 		historyText += fmt.Sprintf("Action: %s\nOutcome: %s\n", entry.PlayerAction, entry.Outcome)
+		if len(entry.Changes) > 0 {
+			historyText += fmt.Sprintf("Side Effects: %v\n", entry.Changes)
+		}
+		if len(entry.Inventory) > 0 {
+			historyText += fmt.Sprintf("Inventory: %v\n", entry.Inventory)
+		}
 	}
 
 	prompt := fmt.Sprintf(`You are the game master for a text-based adventure.
@@ -118,6 +124,7 @@ Output your response in the following YAML format (use | for multi-line strings)
 
 outcome: |
   Narrative description of what happened
+changes: {"stat_name": "change_value", "item_added": "item_name"} # Briefly list side effects
 state:
   inventory: ["updated", "list"]
   stats: {"stat": "value"}
@@ -158,8 +165,9 @@ Return ONLY the YAML. No markdown formatting blocks.`,
 	cleanYAML = strings.TrimSuffix(cleanYAML, "```")
 
 	type TurnResult struct {
-		Outcome string           `yaml:"outcome"`
-		State   models.GameState `yaml:"state"`
+		Outcome string            `yaml:"outcome"`
+		Changes map[string]string `yaml:"changes"`
+		State   models.GameState  `yaml:"state"`
 	}
 
 	var result TurnResult
@@ -173,6 +181,8 @@ Return ONLY the YAML. No markdown formatting blocks.`,
 	session.History.Entries = append(session.History.Entries, models.HistoryEntry{
 		PlayerAction: action,
 		Outcome:      result.Outcome,
+		Changes:      result.Changes,
+		Inventory:    result.State.Inventory,
 	})
 
 	return result.Outcome, nil

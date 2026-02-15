@@ -21,8 +21,10 @@ type GameState struct {
 
 // HistoryEntry represents a single turn in the game.
 type HistoryEntry struct {
-	PlayerAction string `yaml:"player_action"`
-	Outcome      string `yaml:"outcome"`
+	PlayerAction string            `yaml:"player_action"`
+	Outcome      string            `yaml:"outcome"`
+	Changes      map[string]string `yaml:"changes,omitempty"`   // e.g., {"health": "-10"}
+	Inventory    []string          `yaml:"inventory,omitempty"` // current inventory after the turn
 }
 
 // GameHistory contains the abbreviated history of the game.
