@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const SaveDir = "saves"
+const SaveDir = ".saves"
 
 func (s *GameSession) Save(name string) error {
 	if err := os.MkdirAll(SaveDir, 0755); err != nil {

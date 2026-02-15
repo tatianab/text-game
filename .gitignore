@@ -1,0 +1,10 @@
+# Saved games
+.saves/
+
+# Binaries
+game
+main
+*.exe
+
+# Dependency directories
+vendor/
