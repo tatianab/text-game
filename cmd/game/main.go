@@ -1,16 +1,13 @@
+// Package main contains the entry point for the game.
 package main
 
-import (
-	"bufio"
-	"fmt"
-	"os"
-	"strings"
-)
+import "fmt"
 
 func main() {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter something: ")
-	input, _ := reader.ReadString('
-')
-	fmt.Printf("You said: %s", strings.TrimSpace(input))
+	gameLoop()
+}
+
+func gameLoop() {
+	fmt.Println("Hello world!")
+	// TODO: add game loop
 }
