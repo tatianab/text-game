@@ -41,10 +41,11 @@ If the hint is "random", pick a unique and interesting theme.
 Use short, punchy paragraphs for the world description. 
 Use double newlines between paragraphs for readability.
 
-Output the initial game state in the following YAML format:
+Output the initial game state in the following YAML format (use | for multi-line strings):
 
 world:
-  description: "Detailed description of the world"
+  description: |
+    Detailed description of the world
   possibilities: ["action 1", "action 2"]
   state_schema: "Description of what stats and inventory items are tracked"
   win_conditions: "Secret win conditions"
@@ -111,9 +112,10 @@ Based on the world rules and the player's action, describe what happens and upda
 Use short, punchy paragraphs for the description. 
 Use double newlines between paragraphs for readability.
 
-Output your response in the following YAML format:
+Output your response in the following YAML format (use | for multi-line strings):
 
-outcome: "Narrative description of what happened"
+outcome: |
+  Narrative description of what happened
 state:
   inventory: ["updated", "list"]
   stats: {"stat": "value"}
