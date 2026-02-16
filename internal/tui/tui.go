@@ -197,18 +197,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 												m.history = append(m.history, logEntry{IsUser: true, Text: entry.PlayerAction})
 												m.history = append(m.history, logEntry{IsUser: false, Text: entry.Outcome})
 												
-												if len(entry.Changes) > 0 {
-													var changes []string
-													for k, v := range entry.Changes {
-														changes = append(changes, fmt.Sprintf("%s: %s", k, v))
-													}
-													sort.Strings(changes)
-													m.history = append(m.history, logEntry{
-														IsSideEffect: true,
-														Text:         "Effects: " + strings.Join(changes, ", "),
-													})
-												}
-											}
+																		if len(entry.Changes) > 0 {
+																			m.history = append(m.history, logEntry{
+																				IsSideEffect: true,
+																				Text:         m.formatSideEffects(entry.Changes),
+																			})
+																		}											}
 						logWidth := int(float64(m.width) * 0.75)
 						if m.viewport.Width == 0 {
 							m.viewport = viewport.New(logWidth, m.height-8)
@@ -333,14 +327,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.session.History.Entries) > 0 {
 			last := m.session.History.Entries[len(m.session.History.Entries)-1]
 			if len(last.Changes) > 0 {
-				var changes []string
-				for k, v := range last.Changes {
-					changes = append(changes, fmt.Sprintf("%s: %s", k, v))
-				}
-				sort.Strings(changes)
 				m.history = append(m.history, logEntry{
 					IsSideEffect: true,
-					Text:         "Effects: " + strings.Join(changes, ", "),
+					Text:         m.formatSideEffects(last.Changes),
 				})
 			}
 		}
@@ -442,7 +431,17 @@ func (m model) renderState() string {
 
 	// Stats
 	statsTitle := titleStyle.Render("STATS") + "\n"
-	stats := fmt.Sprintf("Health: %s\nProgress: %s\n", state.Health, state.Progress)
+	
+	healthName := "Health"
+	if hn, ok := world.StatDisplayNames["health"]; ok {
+		healthName = hn
+	}
+	progressName := "Progress"
+	if pn, ok := world.StatDisplayNames["progress"]; ok {
+		progressName = pn
+	}
+	
+	stats := fmt.Sprintf("%s: %s\n%s: %s\n", healthName, state.Health, progressName, state.Progress)
 
 	var keys []string
 	for k := range state.Stats {
@@ -453,7 +452,11 @@ func (m model) renderState() string {
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		stats += fmt.Sprintf("%s: %s\n", k, state.Stats[k])
+		name := k
+		if dn, ok := world.StatDisplayNames[k]; ok {
+			name = dn
+		}
+		stats += fmt.Sprintf("%s: %s\n", name, state.Stats[k])
 	}
 	stats += "\n"
 
@@ -500,6 +503,21 @@ func (m model) renderLog() string {
 	}
 
 	return b.String()
+}
+
+func (m model) formatSideEffects(changes map[string]string) string {
+	var results []string
+	for k, v := range changes {
+		name := k
+		if m.session != nil {
+			if dn, ok := m.session.World.StatDisplayNames[k]; ok {
+				name = dn
+			}
+		}
+		results = append(results, fmt.Sprintf("%s: %s", name, v))
+	}
+	sort.Strings(results)
+	return "Effects: " + strings.Join(results, ", ")
 }
 
 func (m model) styleGameText(text string, width int) string {

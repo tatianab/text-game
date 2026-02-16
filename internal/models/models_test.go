@@ -12,9 +12,10 @@ func TestGameSessionYAML(t *testing.T) {
 			Title:         "The Hidden Manor",
 			ShortName:     "hidden-manor",
 			Description:   "A dark forest",
-			Possibilities: []string{"look", "walk"},
-			StateSchema:   "health and inventory",
-			WinConditions: "Find the key",
+			Possibilities:    []string{"look", "walk"},
+			StateSchema:      "health and inventory",
+			StatDisplayNames: map[string]string{"health": "Vitality"},
+			WinConditions:    "Find the key",
 		},
 		State: GameState{
 			Inventory: []string{"map"},

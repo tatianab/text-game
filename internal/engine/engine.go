@@ -52,6 +52,7 @@ world:
     Detailed description of the world
   possibilities: ["action 1", "action 2"]
   state_schema: "Description of what stats and inventory items are tracked"
+  stat_display_names: {"health": "Vitality", "mana": "Spirit Energy"} # Map machine keys to user-friendly names
   win_conditions: "Secret win conditions"
 state:
   inventory: []
