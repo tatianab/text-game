@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -34,6 +35,7 @@ type model struct {
 	session     *models.GameSession
 	textArea    textarea.Model
 	viewport    viewport.Model
+	spinner     spinner.Model
 	err         error
 	inputErr    string
 	history     []logEntry
@@ -42,6 +44,7 @@ type model struct {
 	lastOutcome string
 	lastTabIdx  int
 	lastSearch  string
+	loadingTurn bool
 }
 
 var (
@@ -91,16 +94,21 @@ func NewModel(eng *engine.Engine) model {
 	ta.SetHeight(1)
 	ta.ShowLineNumbers = false
 
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
 	return model{
 		state:      stateInputHint,
 		engine:     eng,
 		textArea:   ta,
+		spinner:    s,
 		lastTabIdx: -1,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return textarea.Blink
+	return tea.Batch(textarea.Blink, m.spinner.Tick)
 }
 
 type worldGeneratedMsg struct {
@@ -120,6 +128,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case spinner.TickMsg:
+		var sCmd tea.Cmd
+		m.spinner, sCmd = m.spinner.Update(msg)
+		return m, sCmd
+
 	case tea.KeyMsg:
 		if msg.Type != tea.KeyTab {
 			m.lastTabIdx = -1
@@ -204,9 +217,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					hint = "random"
 				}
 				m.state = stateLoading
-				return m, m.generateWorld(hint)
+				return m, tea.Batch(m.generateWorld(hint), m.spinner.Tick)
 			}
 			if m.state == statePlaying {
+				if m.loadingTurn {
+					return m, nil
+				}
 				action := strings.TrimSpace(m.textArea.Value())
 				if action == "" {
 					return m, nil
@@ -252,7 +268,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.history = append(m.history, logEntry{IsUser: true, Text: action})
 				m.viewport.SetContent(m.renderLog())
 				m.viewport.GotoBottom()
-				return m, m.processTurn(action)
+				m.loadingTurn = true
+				return m, tea.Batch(m.processTurn(action), m.spinner.Tick)
 			}
 		}
 
@@ -267,6 +284,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case worldGeneratedMsg:
+		m.loadingTurn = false
 		m.session = msg.session
 		m.state = statePlaying
 		m.history = append(m.history, logEntry{
@@ -286,6 +304,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case turnProcessedMsg:
+		m.loadingTurn = false
 		if msg.err != nil {
 			m.err = msg.err
 			m.state = stateError
@@ -337,7 +356,7 @@ func (m model) View() string {
 		s += "\n" + m.textArea.View()
 
 	case stateLoading:
-		s = wrapStyle.Render("\n  Generating your world... please wait.\n")
+		s = fmt.Sprintf("\n  %s Generating your world... please wait.\n", m.spinner.View())
 
 	case statePlaying:
 		logView := m.viewport.View()
@@ -351,9 +370,16 @@ func (m model) View() string {
 
 		help := helpStyle.Render("Commands: /save <name>, /restart, /quit, or just type what you want to do.")
 
+		var inputArea string
+		if m.loadingTurn {
+			inputArea = fmt.Sprintf("\n  %s Thinking...", m.spinner.View())
+		} else {
+			inputArea = "\n" + m.textArea.View()
+		}
+
 		s = lipgloss.JoinVertical(lipgloss.Left,
 			mainView,
-			"\n"+m.textArea.View(),
+			inputArea,
 			"\n"+help,
 		)
 
