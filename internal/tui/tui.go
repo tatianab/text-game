@@ -25,8 +25,9 @@ const (
 )
 
 type logEntry struct {
-	IsUser bool
-	Text   string
+	IsUser       bool
+	IsSideEffect bool
+	Text         string
 }
 
 type model struct {
@@ -83,6 +84,10 @@ var (
 	boldStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#FFFFFF"))
+
+	sideEffectStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#D7875F")). // Orange/Tan
+			Italic(true)
 )
 
 func NewModel(eng *engine.Engine) model {
@@ -188,11 +193,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							IsUser: false,
 							Text:   fmt.Sprintf("%s\nLocation: %s\n\n%s", m.session.World.Title, m.session.State.CurrentLocation, m.session.World.Description),
 						})
-						for _, entry := range m.session.History.Entries {
-							m.history = append(m.history, logEntry{IsUser: true, Text: entry.PlayerAction})
-							m.history = append(m.history, logEntry{IsUser: false, Text: entry.Outcome})
-						}
-
+											for _, entry := range m.session.History.Entries {
+												m.history = append(m.history, logEntry{IsUser: true, Text: entry.PlayerAction})
+												m.history = append(m.history, logEntry{IsUser: false, Text: entry.Outcome})
+												
+												if len(entry.Changes) > 0 {
+													var changes []string
+													for k, v := range entry.Changes {
+														changes = append(changes, fmt.Sprintf("%s: %s", k, v))
+													}
+													sort.Strings(changes)
+													m.history = append(m.history, logEntry{
+														IsSideEffect: true,
+														Text:         "Effects: " + strings.Join(changes, ", "),
+													})
+												}
+											}
 						logWidth := int(float64(m.width) * 0.75)
 						if m.viewport.Width == 0 {
 							m.viewport = viewport.New(logWidth, m.height-8)
@@ -312,6 +328,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.lastOutcome = msg.outcome
 		m.history = append(m.history, logEntry{IsUser: false, Text: msg.outcome})
+
+		// Check for side effects in the latest history entry
+		if len(m.session.History.Entries) > 0 {
+			last := m.session.History.Entries[len(m.session.History.Entries)-1]
+			if len(last.Changes) > 0 {
+				var changes []string
+				for k, v := range last.Changes {
+					changes = append(changes, fmt.Sprintf("%s: %s", k, v))
+				}
+				sort.Strings(changes)
+				m.history = append(m.history, logEntry{
+					IsSideEffect: true,
+					Text:         "Effects: " + strings.Join(changes, ", "),
+				})
+			}
+		}
+
 		m.viewport.SetContent(m.renderLog())
 		m.viewport.GotoBottom()
 		m.session.Save(m.session.World.ShortName)
@@ -448,13 +481,21 @@ func (m model) renderLog() string {
 		var styled string
 		if entry.IsUser {
 			styled = userStyle.Width(logWidth).Render("> " + entry.Text)
+		} else if entry.IsSideEffect {
+			styled = sideEffectStyle.Width(logWidth).Render(entry.Text)
 		} else {
 			// Parse for bold and dialogue
 			styled = m.styleGameText(entry.Text, logWidth)
 		}
 		b.WriteString(styled)
+		
 		if i < len(m.history)-1 {
-			b.WriteString("\n\n")
+			// If the NEXT entry is a side effect, use single newline
+			if m.history[i+1].IsSideEffect {
+				b.WriteString("\n")
+			} else {
+				b.WriteString("\n\n")
+			}
 		}
 	}
 
