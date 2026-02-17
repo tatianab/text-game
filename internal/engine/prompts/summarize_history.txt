@@ -1,0 +1,8 @@
+The following is a list of actions and outcomes from a text-based adventure game.
+Current Summary: {{.CurrentSummary}}
+
+New events to add to the summary:
+{{.NewEvents}}
+
+Provide a concise, third-person summary of these events that captures the key plot points and state changes.
+Return ONLY the summary text.
