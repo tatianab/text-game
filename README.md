@@ -5,14 +5,26 @@ Text-based game generator
 
 ## Play the game
 
-1.  **Set your Gemini API key**: 
-    Obtain an API key from [Google AI Studio](https://aistudio.google.com/) and set it in your environment:
+1.  **Install the game**:
+    ```bash
+    go install github.com/tatianab/text-game/cmd/game@latest
+    ```
+    *Ensure your `GOBIN` (usually `~/go/bin`) is in your `PATH`.*
+
+2.  **Set your Gemini API key**: 
+    Obtain a free API key from [Google AI Studio](https://aistudio.google.com/app/apikey) and set it in your environment:
     ```bash
     export GEMINI_API_KEY=your_api_key_here
     ```
 
-2.  **Run the game**:
-    From the repo root, run:
+3.  **Run the game**:
     ```bash
-    go run cmd/game/main.go
+    game
     ```
+
+## Development
+
+If you have cloned the repository, you can run the game directly:
+```bash
+go run cmd/game/main.go
+```
