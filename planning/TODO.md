@@ -8,3 +8,4 @@
 - [ ] **State/Narrative Synchronization**: Refine prompts to ensure LLM state changes (inventory/stats) always match the narrative outcome.
 - [ ] **Location-Based Descriptions**: Separate global world lore from specific room/location descriptions so the LLM doesn't get "stuck" at the starting line.
 - [ ] **Milestone-Based Progress**: Change the "Progress" stat from a simple percentage to a list of "Milestones Discovered" or "Clues Found."
+- [ ] **Adversarial GM**: Update prompts to encourage the LLM to introduce risks, failed checks, and health/resource depletion to make the game challenging.
