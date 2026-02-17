@@ -65,20 +65,21 @@ func main() {
 		fmt.Printf("Player Action: %s\n", action)
 
 		// Process Turn
-		outcome, err := gmEngine.ProcessTurn(ctx, session, action)
+		outcome, status, err := gmEngine.ProcessTurn(ctx, session, action)
 		if err != nil {
 			fmt.Printf("Error processing turn: %v\n", err)
 			break
 		}
 		fmt.Printf("GM Outcome: %s\n", outcome)
+		fmt.Printf("Status: %s\n", status)
 		fmt.Printf("Stats: Health=%s, Progress=%s, Inventory=%v\n\n", session.State.Health, session.State.Progress, session.State.Inventory)
 
-		// Check for win/lose (simple check for now)
-		if strings.Contains(strings.ToLower(outcome), "congratulations") || strings.Contains(strings.ToLower(outcome), "you win") {
+		// Check for win/lose
+		if status == "WON" {
 			fmt.Println("Game Ended: Player Won!")
 			break
 		}
-		if strings.Contains(strings.ToLower(outcome), "game over") || strings.Contains(strings.ToLower(outcome), "you died") {
+		if status == "LOST" {
 			fmt.Println("Game Ended: Player Lost!")
 			break
 		}
@@ -88,7 +89,7 @@ func main() {
 func getPlayerAction(ctx context.Context, model *genai.GenerativeModel, session *models.GameSession) string {
 	historyText := ""
 	for _, entry := range session.History.Entries {
-		historyText += fmt.Sprintf("Action: %s\nOutcome: %s\n", entry.PlayerAction, entry.Outcome)
+		historyText += fmt.Sprintf("Action: %s\nOutcome: %s\nStatus: %s\n", entry.PlayerAction, entry.Outcome, entry.Status)
 	}
 
 	prompt := fmt.Sprintf(`You are playing a text-based adventure game.

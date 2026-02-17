@@ -25,6 +25,7 @@ type GameState struct {
 type HistoryEntry struct {
 	PlayerAction string            `yaml:"player_action"`
 	Outcome      string            `yaml:"outcome"`
+	Status       string            `yaml:"status"`              // "PLAYING", "WON", "LOST"
 	Changes      map[string]string `yaml:"changes,omitempty"`   // e.g., {"health": "-10"}
 	Inventory    []string          `yaml:"inventory,omitempty"` // current inventory after the turn
 }

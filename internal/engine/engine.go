@@ -93,10 +93,10 @@ Return ONLY the YAML. No markdown formatting blocks like `+"```yaml"+`.`, hint)
 	return &session, nil
 }
 
-func (e *Engine) ProcessTurn(ctx context.Context, session *models.GameSession, action string) (string, error) {
+func (e *Engine) ProcessTurn(ctx context.Context, session *models.GameSession, action string) (string, string, error) {
 	historyText := ""
 	for _, entry := range session.History.Entries {
-		historyText += fmt.Sprintf("Action: %s\nOutcome: %s\n", entry.PlayerAction, entry.Outcome)
+		historyText += fmt.Sprintf("Action: %s\nOutcome: %s\nStatus: %s\n", entry.PlayerAction, entry.Outcome, entry.Status)
 		if len(entry.Changes) > 0 {
 			historyText += fmt.Sprintf("Side Effects: %v\n", entry.Changes)
 		}
@@ -131,6 +131,7 @@ Output your response in the following YAML format (use | for multi-line strings)
 
 outcome: |
   Narrative description of what happened
+status: "PLAYING" # Set to "WON" or "LOST" if the game ends
 changes: {"stat_name": "change_value", "item_added": "item_name"} # Briefly list side effects
 state:
   inventory: ["updated", "list"]
@@ -141,7 +142,7 @@ state:
 
 Return ONLY the YAML. No markdown formatting blocks.
 
-If the player meets a Win or Lose condition, describe the final outcome clearly and include the phrase "CONGRATULATIONS" for a win or "GAME OVER" for a loss in the outcome description.`,
+If the player meets a Win or Lose condition, describe the final outcome clearly and set the status to "WON" or "LOST".`,
 		session.World.Description,
 		session.World.WinConditions,
 		session.World.LoseConditions,
@@ -156,17 +157,17 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 
 	resp, err := e.model.GenerateContent(ctx, genai.Text(prompt))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
-		return "", fmt.Errorf("no content returned from Gemini")
+		return "", "", fmt.Errorf("no content returned from Gemini")
 	}
 
 	part := resp.Candidates[0].Content.Parts[0]
 	text, ok := part.(genai.Text)
 	if !ok {
-		return "", fmt.Errorf("unexpected response type from Gemini")
+		return "", "", fmt.Errorf("unexpected response type from Gemini")
 	}
 
 	cleanYAML := strings.TrimSpace(string(text))
@@ -176,6 +177,7 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 
 	type TurnResult struct {
 		Outcome string            `yaml:"outcome"`
+		Status  string            `yaml:"status"`
 		Changes map[string]string `yaml:"changes"`
 		State   models.GameState  `yaml:"state"`
 	}
@@ -183,7 +185,7 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 	var result TurnResult
 	err = yaml.Unmarshal([]byte(cleanYAML), &result)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse turn YAML: %v\nOutput was: %s", err, cleanYAML)
+		return "", "", fmt.Errorf("failed to parse turn YAML: %v\nOutput was: %s", err, cleanYAML)
 	}
 
 	// Update session
@@ -191,9 +193,10 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 	session.History.Entries = append(session.History.Entries, models.HistoryEntry{
 		PlayerAction: action,
 		Outcome:      result.Outcome,
+		Status:       result.Status,
 		Changes:      result.Changes,
 		Inventory:    result.State.Inventory,
 	})
 
-	return result.Outcome, nil
+	return result.Outcome, result.Status, nil
 }

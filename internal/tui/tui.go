@@ -125,6 +125,7 @@ type worldGeneratedMsg struct {
 
 type turnProcessedMsg struct {
 	outcome string
+	status  string
 	err     error
 }
 
@@ -207,8 +208,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 																				Text:         m.formatSideEffects(entry.Changes),
 																			})
 																		}											
-												lowerOutcome := strings.ToLower(entry.Outcome)
-												if strings.Contains(lowerOutcome, "congratulations") || strings.Contains(lowerOutcome, "game over") {
+												if entry.Status == "WON" || entry.Status == "LOST" {
 													m.isFinished = true
 												}
 											}
@@ -354,8 +354,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.session.Save(m.session.World.ShortName)
 
 		// Check for game end
-		lowerOutcome := strings.ToLower(msg.outcome)
-		if strings.Contains(lowerOutcome, "congratulations") || strings.Contains(lowerOutcome, "game over") {
+		if msg.status == "WON" || msg.status == "LOST" {
 			m.isFinished = true
 		}
 
@@ -614,8 +613,8 @@ func (m model) generateWorld(hint string) tea.Cmd {
 
 func (m model) processTurn(action string) tea.Cmd {
 	return func() tea.Msg {
-		outcome, err := m.engine.ProcessTurn(context.Background(), m.session, action)
-		return turnProcessedMsg{outcome, err}
+		outcome, status, err := m.engine.ProcessTurn(context.Background(), m.session, action)
+		return turnProcessedMsg{outcome, status, err}
 	}
 }
 
