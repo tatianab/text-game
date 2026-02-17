@@ -65,13 +65,16 @@ func main() {
 		fmt.Printf("Player Action: %s\n", action)
 
 		// Process Turn
-		outcome, status, err := gmEngine.ProcessTurn(ctx, session, action)
+		outcome, status, discovered, err := gmEngine.ProcessTurn(ctx, session, action)
 		if err != nil {
 			fmt.Printf("Error processing turn: %v\n", err)
 			break
 		}
 		fmt.Printf("GM Outcome: %s\n", outcome)
 		fmt.Printf("Status: %s\n", status)
+		if discovered != "" {
+			fmt.Printf("DISCOVERED: %s\n", discovered)
+		}
 
 		if len(session.History.Entries) > 0 {
 			last := session.History.Entries[len(session.History.Entries)-1]

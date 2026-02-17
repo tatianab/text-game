@@ -56,6 +56,12 @@ world:
   stat_polarities: {"health": "good", "mana": "good", "corruption": "bad"} # Define each stat as "good" (higher is better) or "bad" (lower is better)
   win_conditions: "Secret win conditions"
   lose_conditions: "Secret lose conditions (e.g., health reaches 0, specific fatal choices)"
+initial_location:
+  name: "Starting point"
+  description: |
+    Detailed description of the starting location
+  people: ["Person 1", "Person 2"]
+  objects: ["Object 1", "Object 2"]
 state:
   inventory: []
   stats: {"health": "100", "mana": "50"}
@@ -85,16 +91,29 @@ Return ONLY the YAML. No markdown formatting blocks like `+"```yaml"+`.`, hint)
 	cleanYAML = strings.TrimPrefix(cleanYAML, "```")
 	cleanYAML = strings.TrimSuffix(cleanYAML, "```")
 
-	var session models.GameSession
-	err = yaml.Unmarshal([]byte(cleanYAML), &session)
+	var respData struct {
+		World           models.World    `yaml:"world"`
+		InitialLocation models.Location `yaml:"initial_location"`
+		State           models.GameState `yaml:"state"`
+	}
+	err = yaml.Unmarshal([]byte(cleanYAML), &respData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %v\nOutput was: %s", err, cleanYAML)
 	}
 
-	return &session, nil
+	session := &models.GameSession{
+		World:     respData.World,
+		State:     respData.State,
+		Locations: make(map[string]models.Location),
+	}
+	if respData.InitialLocation.Name != "" {
+		session.Locations[respData.InitialLocation.Name] = respData.InitialLocation
+	}
+
+	return session, nil
 }
 
-func (e *Engine) ProcessTurn(ctx context.Context, session *models.GameSession, action string) (string, string, error) {
+func (e *Engine) ProcessTurn(ctx context.Context, session *models.GameSession, action string) (string, string, string, error) {
 	historyText := ""
 	for _, entry := range session.History.Entries {
 		historyText += fmt.Sprintf("Action: %s\nOutcome: %s\nStatus: %s\n", entry.PlayerAction, entry.Outcome, entry.Status)
@@ -106,10 +125,17 @@ func (e *Engine) ProcessTurn(ctx context.Context, session *models.GameSession, a
 		}
 	}
 
+	knownLocations := ""
+	for name, loc := range session.Locations {
+		knownLocations += fmt.Sprintf("- %s: %s (People: %v, Objects: %v)\n", name, loc.Description, loc.People, loc.Objects)
+	}
+
 	prompt := fmt.Sprintf(`You are the game master for a text-based adventure.
 World Description: %s
 Win Conditions: %s
 Lose Conditions: %s
+Known Locations:
+%s
 Current State:
   Location: %s
   Inventory: %v
@@ -133,6 +159,12 @@ Output your response in the following YAML format (use | for multi-line strings)
 outcome: |
   Narrative description of what happened
 status: "PLAYING" # Set to "WON" or "LOST" if the game ends
+discovered_location: # Optional: Include ONLY if a brand new location is discovered
+  name: "Location Name"
+  description: |
+    Detailed description
+  people: ["Person A"]
+  objects: ["Object B"]
 explanations:
   - "Narrative explanation of a change (e.g., 'Your Health decreased because you were struck.')"
 changes: {"stat_name": "change_value", "item_added": "item_name"} # Briefly list side effects
@@ -149,6 +181,7 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 		session.World.Description,
 		session.World.WinConditions,
 		session.World.LoseConditions,
+		knownLocations,
 		session.State.CurrentLocation,
 		session.State.Inventory,
 		session.State.Stats,
@@ -160,17 +193,17 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 
 	resp, err := e.model.GenerateContent(ctx, genai.Text(prompt))
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
-		return "", "", fmt.Errorf("no content returned from Gemini")
+		return "", "", "", fmt.Errorf("no content returned from Gemini")
 	}
 
 	part := resp.Candidates[0].Content.Parts[0]
 	text, ok := part.(genai.Text)
 	if !ok {
-		return "", "", fmt.Errorf("unexpected response type from Gemini")
+		return "", "", "", fmt.Errorf("unexpected response type from Gemini")
 	}
 
 	cleanYAML := strings.TrimSpace(string(text))
@@ -179,21 +212,30 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 	cleanYAML = strings.TrimSuffix(cleanYAML, "```")
 
 	type TurnResult struct {
-		Outcome      string            `yaml:"outcome"`
-		Status       string            `yaml:"status"`
-		Explanations []string          `yaml:"explanations"`
-		Changes      map[string]string `yaml:"changes"`
-		State        models.GameState  `yaml:"state"`
+		Outcome            string            `yaml:"outcome"`
+		Status             string            `yaml:"status"`
+		DiscoveredLocation *models.Location  `yaml:"discovered_location"`
+		Explanations       []string          `yaml:"explanations"`
+		Changes            map[string]string `yaml:"changes"`
+		State              models.GameState  `yaml:"state"`
 	}
 
 	var result TurnResult
 	err = yaml.Unmarshal([]byte(cleanYAML), &result)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to parse turn YAML: %v\nOutput was: %s", err, cleanYAML)
+		return "", "", "", fmt.Errorf("failed to parse turn YAML: %v\nOutput was: %s", err, cleanYAML)
 	}
 
 	// Update session
 	session.State = result.State
+	discoveredName := ""
+	if result.DiscoveredLocation != nil && result.DiscoveredLocation.Name != "" {
+		discoveredName = result.DiscoveredLocation.Name
+		if session.Locations == nil {
+			session.Locations = make(map[string]models.Location)
+		}
+		session.Locations[result.DiscoveredLocation.Name] = *result.DiscoveredLocation
+	}
 	session.History.Entries = append(session.History.Entries, models.HistoryEntry{
 		PlayerAction: action,
 		Outcome:      result.Outcome,
@@ -203,5 +245,5 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 		Inventory:    result.State.Inventory,
 	})
 
-	return result.Outcome, result.Status, nil
+	return result.Outcome, result.Status, discoveredName, nil
 }

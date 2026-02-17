@@ -37,9 +37,18 @@ type GameHistory struct {
 	Entries []HistoryEntry `yaml:"entries"`
 }
 
+// Location represents a specific place in the world.
+type Location struct {
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description"`
+	People      []string `yaml:"people"`
+	Objects     []string `yaml:"objects"`
+}
+
 // GameSession aggregates all game-related data.
 type GameSession struct {
-	World   World       `yaml:"world"`
-	State   GameState   `yaml:"state"`
-	History GameHistory `yaml:"history"`
+	World     World               `yaml:"world"`
+	State     GameState           `yaml:"state"`
+	History   GameHistory         `yaml:"history"`
+	Locations map[string]Location `yaml:"locations"` // Keyed by location name
 }

@@ -100,6 +100,10 @@ var (
 	dangerStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF8787")). // Light Red
 			Italic(true)
+
+	discoveryStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#D7D7AF")). // Pale Yellow/Beige
+			Bold(true)
 )
 
 func NewModel(eng *engine.Engine) model {
@@ -133,9 +137,10 @@ type worldGeneratedMsg struct {
 }
 
 type turnProcessedMsg struct {
-	outcome string
-	status  string
-	err     error
+	outcome                string
+	status                 string
+	discoveredLocationName string
+	err                    error
 }
 
 type errMsg struct {
@@ -356,6 +361,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastOutcome = msg.outcome
 		m.history = append(m.history, logEntry{IsUser: false, Text: msg.outcome})
 
+		if msg.discoveredLocationName != "" {
+			m.history = append(m.history, logEntry{
+				Style: &discoveryStyle,
+				Text:  fmt.Sprintf("New Location Discovered: %s", msg.discoveredLocationName),
+			})
+		}
+
 		// Check for side effects in the latest history entry
 		if len(m.session.History.Entries) > 0 {
 			last := m.session.History.Entries[len(m.session.History.Entries)-1]
@@ -478,6 +490,24 @@ func (m model) renderState() string {
 	// Location
 	location := titleStyle.Render("LOCATION") + "\n" + wrapState.Render(state.CurrentLocation) + "\n\n"
 
+	locInfo := ""
+	if loc, ok := m.session.Locations[state.CurrentLocation]; ok {
+		if len(loc.People) > 0 {
+			locInfo += titleStyle.Render("PEOPLE") + "\n"
+			for _, p := range loc.People {
+				locInfo += "- " + wrapState.Render(p) + "\n"
+			}
+			locInfo += "\n"
+		}
+		if len(loc.Objects) > 0 {
+			locInfo += titleStyle.Render("OBJECTS") + "\n"
+			for _, o := range loc.Objects {
+				locInfo += "- " + wrapState.Render(o) + "\n"
+			}
+			locInfo += "\n"
+		}
+	}
+
 	// Stats
 	statsTitle := titleStyle.Render("STATS") + "\n"
 	
@@ -520,7 +550,7 @@ func (m model) renderState() string {
 		}
 	}
 
-	content := title + location + statsTitle + stats + invTitle + inventory
+	content := title + location + locInfo + statsTitle + stats + invTitle + inventory
 
 	return stateStyle.Width(stateWidth).Height(m.viewport.Height).Render(content)
 }
@@ -693,8 +723,8 @@ func (m model) generateWorld(hint string) tea.Cmd {
 
 func (m model) processTurn(action string) tea.Cmd {
 	return func() tea.Msg {
-		outcome, status, err := m.engine.ProcessTurn(context.Background(), m.session, action)
-		return turnProcessedMsg{outcome, status, err}
+		outcome, status, discovered, err := m.engine.ProcessTurn(context.Background(), m.session, action)
+		return turnProcessedMsg{outcome, status, discovered, err}
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -59,6 +60,25 @@ func (s *GameSession) Save(name string) error {
 		return err
 	}
 
+	// Save locations
+	if len(s.Locations) > 0 {
+		locDir := filepath.Join(dir, "locations")
+		if err := os.MkdirAll(locDir, 0755); err != nil {
+			return err
+		}
+		for name, loc := range s.Locations {
+			locData, err := yaml.Marshal(loc)
+			if err != nil {
+				return err
+			}
+			// Sanitize name for filename
+			safeName := strings.ReplaceAll(strings.ToLower(name), " ", "-")
+			if err := os.WriteFile(filepath.Join(locDir, safeName+".yaml"), locData, 0644); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -108,10 +128,31 @@ func LoadSession(name string) (*GameSession, error) {
 		return nil, err
 	}
 
+	// Load locations
+	locations := make(map[string]Location)
+	locDir := filepath.Join(dir, "locations")
+	if _, err := os.Stat(locDir); err == nil {
+		entries, err := os.ReadDir(locDir)
+		if err == nil {
+			for _, entry := range entries {
+				if !entry.IsDir() && filepath.Ext(entry.Name()) == ".yaml" {
+					locData, err := os.ReadFile(filepath.Join(locDir, entry.Name()))
+					if err == nil {
+						var loc Location
+						if err := yaml.Unmarshal(locData, &loc); err == nil {
+							locations[loc.Name] = loc
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return &GameSession{
-		World:   world,
-		State:   state,
-		History: history,
+		World:     world,
+		State:     state,
+		History:   history,
+		Locations: locations,
 	}, nil
 }
 
