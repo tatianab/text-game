@@ -9,6 +9,7 @@ type World struct {
 	StateSchema      string            `yaml:"state_schema"`  // description of what sort of state will be held
 	StatDisplayNames map[string]string `yaml:"stat_display_names"` // machine_name -> "Human Readable Name"
 	WinConditions    string            `yaml:"win_conditions"`
+	LoseConditions   string            `yaml:"lose_conditions"`
 }
 
 // GameState represents the current dynamic state of the game.

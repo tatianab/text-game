@@ -54,6 +54,7 @@ world:
   state_schema: "Description of what stats and inventory items are tracked"
   stat_display_names: {"health": "Vitality", "mana": "Spirit Energy"} # Map machine keys to user-friendly names
   win_conditions: "Secret win conditions"
+  lose_conditions: "Secret lose conditions (e.g., health reaches 0, specific fatal choices)"
 state:
   inventory: []
   stats: {"health": "100", "mana": "50"}
@@ -107,6 +108,7 @@ func (e *Engine) ProcessTurn(ctx context.Context, session *models.GameSession, a
 	prompt := fmt.Sprintf(`You are the game master for a text-based adventure.
 World Description: %s
 Win Conditions: %s
+Lose Conditions: %s
 Current State:
   Location: %s
   Inventory: %v
@@ -137,9 +139,12 @@ state:
   health: "Updated health"
   progress: "Updated progress"
 
-Return ONLY the YAML. No markdown formatting blocks.`,
+Return ONLY the YAML. No markdown formatting blocks.
+
+If the player meets a Win or Lose condition, describe the final outcome clearly and include the phrase "CONGRATULATIONS" for a win or "GAME OVER" for a loss in the outcome description.`,
 		session.World.Description,
 		session.World.WinConditions,
+		session.World.LoseConditions,
 		session.State.CurrentLocation,
 		session.State.Inventory,
 		session.State.Stats,

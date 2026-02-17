@@ -48,6 +48,7 @@ type model struct {
 	lastTabIdx  int
 	lastSearch  string
 	loadingTurn bool
+	isFinished  bool
 }
 
 var (
@@ -189,6 +190,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 						m.session = session
 						m.state = statePlaying
+						m.isFinished = false
 						// Reconstruct history
 						m.history = nil
 						m.history = append(m.history, logEntry{
@@ -204,7 +206,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 																				IsSideEffect: true,
 																				Text:         m.formatSideEffects(entry.Changes),
 																			})
-																		}											}
+																		}											
+												lowerOutcome := strings.ToLower(entry.Outcome)
+												if strings.Contains(lowerOutcome, "congratulations") || strings.Contains(lowerOutcome, "game over") {
+													m.isFinished = true
+												}
+											}
 						logWidth := int(float64(m.width) * 0.75)
 						if m.viewport.Width == 0 {
 							m.viewport = viewport.New(logWidth, m.height-8)
@@ -249,10 +256,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.state = stateInputHint
 						m.history = nil
 						m.session = nil
+						m.isFinished = false
 						m.textArea.Placeholder = "Enter a hint or 'random'..."
 						m.textArea.SetHeight(1)
 						return m, nil
 					}
+					// ... (other commands)
 					if strings.HasPrefix(action, "/save ") {
 						name := strings.TrimPrefix(action, "/save ")
 						err := m.session.Save(name)
@@ -274,6 +283,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.history = append(m.history, logEntry{IsUser: false, Text: errorStyle.Render(errMsg)})
 					m.viewport.SetContent(m.renderLog())
 					m.viewport.GotoBottom()
+					return m, nil
+				}
+
+				if m.isFinished {
 					return m, nil
 				}
 
@@ -339,6 +352,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(m.renderLog())
 		m.viewport.GotoBottom()
 		m.session.Save(m.session.World.ShortName)
+
+		// Check for game end
+		lowerOutcome := strings.ToLower(msg.outcome)
+		if strings.Contains(lowerOutcome, "congratulations") || strings.Contains(lowerOutcome, "game over") {
+			m.isFinished = true
+		}
+
 		return m, nil
 
 	case errMsg:
@@ -397,6 +417,8 @@ func (m model) View() string {
 		var inputArea string
 		if m.loadingTurn {
 			inputArea = fmt.Sprintf("\n  %s Thinking...", m.spinner.View())
+		} else if m.isFinished {
+			inputArea = "\n" + titleStyle.Render("THE END") + " - Use /restart to play again or /quit to exit."
 		} else {
 			inputArea = "\n" + m.textArea.View()
 		}
