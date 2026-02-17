@@ -29,6 +29,7 @@ const (
 type logEntry struct {
 	IsUser       bool
 	IsSideEffect bool
+	Style        *lipgloss.Style
 	Text         string
 }
 
@@ -90,6 +91,14 @@ var (
 
 	sideEffectStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#D7875F")). // Orange/Tan
+			Italic(true)
+
+	successStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#87D787")). // Light Green
+			Italic(true)
+
+	dangerStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF8787")). // Light Red
 			Italic(true)
 )
 
@@ -203,10 +212,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							m.history = append(m.history, logEntry{IsUser: false, Text: entry.Outcome})
 
 							if len(entry.Explanations) > 0 {
-								m.history = append(m.history, logEntry{
-									IsSideEffect: true,
-									Text:         strings.Join(entry.Explanations, "\n"),
-								})
+								for _, exp := range entry.Explanations {
+									m.history = append(m.history, logEntry{
+										IsSideEffect: true,
+										Style:        m.getExplanationStyle(exp, entry.Changes),
+										Text:         exp,
+									})
+								}
 							} else if len(entry.Changes) > 0 {
 								// Fallback for older saves
 								m.history = append(m.history, logEntry{
@@ -348,10 +360,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.session.History.Entries) > 0 {
 			last := m.session.History.Entries[len(m.session.History.Entries)-1]
 			if len(last.Explanations) > 0 {
-				m.history = append(m.history, logEntry{
-					IsSideEffect: true,
-					Text:         strings.Join(last.Explanations, "\n"),
-				})
+				for _, exp := range last.Explanations {
+					m.history = append(m.history, logEntry{
+						IsSideEffect: true,
+						Style:        m.getExplanationStyle(exp, last.Changes),
+						Text:         exp,
+					})
+				}
 			} else if len(last.Changes) > 0 {
 				m.history = append(m.history, logEntry{
 					IsSideEffect: true,
@@ -516,7 +531,9 @@ func (m model) renderLog() string {
 
 	for i, entry := range m.history {
 		var styled string
-		if entry.IsUser {
+		if entry.Style != nil {
+			styled = entry.Style.Width(logWidth).Render(entry.Text)
+		} else if entry.IsUser {
 			styled = userStyle.Width(logWidth).Render("> " + entry.Text)
 		} else if entry.IsSideEffect {
 			styled = sideEffectStyle.Width(logWidth).Render(entry.Text)
@@ -552,6 +569,58 @@ func (m model) formatSideEffects(changes map[string]string) string {
 	}
 	sort.Strings(results)
 	return "Effects: " + strings.Join(results, ", ")
+}
+
+func (m model) getExplanationStyle(explanation string, changes map[string]string) *lipgloss.Style {
+	if m.session == nil {
+		return &sideEffectStyle
+	}
+
+	world := m.session.World
+	var matchedStat string
+
+	// Try to find which stat this explanation is about
+	for machineName, displayName := range world.StatDisplayNames {
+		if strings.Contains(strings.ToLower(explanation), strings.ToLower(machineName)) ||
+			strings.Contains(strings.ToLower(explanation), strings.ToLower(displayName)) {
+			matchedStat = machineName
+			break
+		}
+	}
+
+	if matchedStat == "" {
+		return &sideEffectStyle
+	}
+
+	// Check if it's an increase or decrease
+	changeVal := changes[matchedStat]
+	isIncrease := true
+	if strings.Contains(changeVal, "-") {
+		isIncrease = false
+	} else if strings.Contains(changeVal, "+") {
+		isIncrease = true
+	} else {
+		// Try to infer from text if changes map isn't clear
+		lowerExp := strings.ToLower(explanation)
+		if strings.Contains(lowerExp, "decreased") || strings.Contains(lowerExp, "lost") || strings.Contains(lowerExp, "dropped") {
+			isIncrease = false
+		}
+	}
+
+	polarity := world.StatPolarities[matchedStat]
+	if polarity == "" {
+		// Default: health and progress are good, others unknown
+		if matchedStat == "health" || matchedStat == "progress" {
+			polarity = "good"
+		} else {
+			return &sideEffectStyle
+		}
+	}
+
+	if (polarity == "good" && isIncrease) || (polarity == "bad" && !isIncrease) {
+		return &successStyle
+	}
+	return &dangerStyle
 }
 
 func (m model) styleGameText(text string, width int) string {

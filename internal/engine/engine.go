@@ -53,6 +53,7 @@ world:
   possibilities: ["action 1", "action 2"]
   state_schema: "Description of what stats and inventory items are tracked"
   stat_display_names: {"health": "Vitality", "mana": "Spirit Energy"} # Map machine keys to user-friendly names
+  stat_polarities: {"health": "good", "mana": "good", "corruption": "bad"} # Define each stat as "good" (higher is better) or "bad" (lower is better)
   win_conditions: "Secret win conditions"
   lose_conditions: "Secret lose conditions (e.g., health reaches 0, specific fatal choices)"
 state:
