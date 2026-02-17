@@ -7,7 +7,7 @@ Text-based game generator
 
 1.  **Install the game**:
     ```bash
-    go install github.com/tatianab/text-game@latest
+    go install github.com/tatianab/text-game/cmd/text-game@latest
     ```
     *Ensure your `GOBIN` (usually `~/go/bin`) is in your `PATH`.*
 
