@@ -543,7 +543,7 @@ func (m model) styleGameText(text string, width int) string {
 
 	flush := func() {
 		if buf.Len() > 0 {
-			final.WriteString(lastStyle.Render(buf.String()))
+			final.WriteString(lastStyle.Inline(true).Render(buf.String()))
 			buf.Reset()
 		}
 	}
@@ -581,7 +581,7 @@ func (m model) styleGameText(text string, width int) string {
 	flush()
 
 	// Wrap the fully styled text
-	return lipgloss.NewStyle().Width(width).Render(final.String())
+	return lipgloss.NewStyle().MaxWidth(width).Render(final.String())
 }
 
 func (m model) generateWorld(hint string) tea.Cmd {
