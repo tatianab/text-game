@@ -114,7 +114,18 @@ Return ONLY the YAML. No markdown formatting blocks like `+"```yaml"+`.`, hint)
 }
 
 func (e *Engine) ProcessTurn(ctx context.Context, session *models.GameSession, action string) (string, string, string, error) {
+	// If history is too long, summarize it
+	if len(session.History.Entries) > 8 {
+		if err := e.SummarizeHistory(ctx, session); err != nil {
+			// Log error but continue with full history for now
+			fmt.Printf("Warning: failed to summarize history: %v\n", err)
+		}
+	}
+
 	historyText := ""
+	if session.History.Summary != "" {
+		historyText = fmt.Sprintf("Summary of previous events: %s\n\n", session.History.Summary)
+	}
 	for _, entry := range session.History.Entries {
 		historyText += fmt.Sprintf("Action: %s\nOutcome: %s\nStatus: %s\n", entry.PlayerAction, entry.Outcome, entry.Status)
 		if len(entry.Changes) > 0 {
@@ -246,4 +257,41 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 	})
 
 	return result.Outcome, result.Status, discoveredName, nil
+}
+
+func (e *Engine) SummarizeHistory(ctx context.Context, session *models.GameSession) error {
+	if len(session.History.Entries) <= 5 {
+		return nil
+	}
+
+	keepCount := 3
+	toSummarize := session.History.Entries[:len(session.History.Entries)-keepCount]
+	remaining := session.History.Entries[len(session.History.Entries)-keepCount:]
+
+	historyToSummarize := ""
+	for _, entry := range toSummarize {
+		historyToSummarize += fmt.Sprintf("Action: %s\nOutcome: %s\n", entry.PlayerAction, entry.Outcome)
+	}
+
+	prompt := fmt.Sprintf(`The following is a list of actions and outcomes from a text-based adventure game.
+Current Summary: %s\n\nNew events to add to the summary:\n%s\n\nProvide a concise, third-person summary of these events that captures the key plot points and state changes.\nReturn ONLY the summary text.`, session.History.Summary, historyToSummarize)
+
+	resp, err := e.model.GenerateContent(ctx, genai.Text(prompt))
+	if err != nil {
+		return err
+	}
+
+	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+		return fmt.Errorf("no content returned from Gemini during summarization")
+	}
+
+	part := resp.Candidates[0].Content.Parts[0]
+	text, ok := part.(genai.Text)
+	if !ok {
+		return fmt.Errorf("unexpected response type from Gemini during summarization")
+	}
+
+	session.History.Summary = strings.TrimSpace(string(text))
+	session.History.Entries = remaining
+	return nil
 }

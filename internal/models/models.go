@@ -34,6 +34,7 @@ type HistoryEntry struct {
 
 // GameHistory contains the abbreviated history of the game.
 type GameHistory struct {
+	Summary string         `yaml:"summary"`
 	Entries []HistoryEntry `yaml:"entries"`
 }
 
