@@ -72,6 +72,14 @@ func main() {
 		}
 		fmt.Printf("GM Outcome: %s\n", outcome)
 		fmt.Printf("Status: %s\n", status)
+
+		if len(session.History.Entries) > 0 {
+			last := session.History.Entries[len(session.History.Entries)-1]
+			for _, exp := range last.Explanations {
+				fmt.Printf("Effect: %s\n", exp)
+			}
+		}
+
 		fmt.Printf("Stats: Health=%s, Progress=%s, Inventory=%v\n\n", session.State.Health, session.State.Progress, session.State.Inventory)
 
 		// Check for win/lose

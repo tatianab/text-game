@@ -132,6 +132,8 @@ Output your response in the following YAML format (use | for multi-line strings)
 outcome: |
   Narrative description of what happened
 status: "PLAYING" # Set to "WON" or "LOST" if the game ends
+explanations:
+  - "Narrative explanation of a change (e.g., 'Your Health decreased because you were struck.')"
 changes: {"stat_name": "change_value", "item_added": "item_name"} # Briefly list side effects
 state:
   inventory: ["updated", "list"]
@@ -176,10 +178,11 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 	cleanYAML = strings.TrimSuffix(cleanYAML, "```")
 
 	type TurnResult struct {
-		Outcome string            `yaml:"outcome"`
-		Status  string            `yaml:"status"`
-		Changes map[string]string `yaml:"changes"`
-		State   models.GameState  `yaml:"state"`
+		Outcome      string            `yaml:"outcome"`
+		Status       string            `yaml:"status"`
+		Explanations []string          `yaml:"explanations"`
+		Changes      map[string]string `yaml:"changes"`
+		State        models.GameState  `yaml:"state"`
 	}
 
 	var result TurnResult
@@ -194,6 +197,7 @@ If the player meets a Win or Lose condition, describe the final outcome clearly 
 		PlayerAction: action,
 		Outcome:      result.Outcome,
 		Status:       result.Status,
+		Explanations: result.Explanations,
 		Changes:      result.Changes,
 		Inventory:    result.State.Inventory,
 	})
