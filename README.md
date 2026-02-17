@@ -26,5 +26,5 @@ Text-based game generator
 
 If you have cloned the repository, you can run the game directly:
 ```bash
-go run main.go
+go run ./cmd/text-game
 ```

@@ -2,8 +2,7 @@
 Build a text-based game generator using Go, BubbleTea, and Gemini. The game will generate unique worlds based on user hints, maintain state in YAML files, and use natural language processing for player actions.
 
 # Key Files & Context
-- `main.go`: Entry point for local development (`go run main.go`).
-- `cmd/text-game/main.go`: Entry point for `go install`.
+- `cmd/text-game/main.go`: Entry point for both `go install` and local development.
 - `internal/engine`: Logic for LLM interaction and game state management.
 - `internal/models`: YAML-serializable structs for World, State, and History.
 - `internal/tui`: BubbleTea models and views.
