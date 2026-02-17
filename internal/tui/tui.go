@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"github.com/tatianab/text-game/internal/config"
 	"github.com/tatianab/text-game/internal/engine"
 	"github.com/tatianab/text-game/internal/models"
@@ -528,22 +529,20 @@ func (m model) styleGameText(text string, width int) string {
 	inBold := false
 	inQuote := false
 
-	getStyle := func(b, q bool) lipgloss.Style {
-		if b && q {
-			return boldStyle.Copy().Inherit(dialogueStyle)
-		} else if b {
-			return boldStyle
-		} else if q {
-			return dialogueStyle
-		}
-		return gameStyle
-	}
-
-	lastStyle := getStyle(false, false)
+	p := termenv.ColorProfile()
 
 	flush := func() {
 		if buf.Len() > 0 {
-			final.WriteString(lastStyle.Inline(true).Render(buf.String()))
+			s := termenv.String(buf.String())
+			if inBold {
+				s = s.Bold()
+			}
+			if inQuote {
+				s = s.Italic().Foreground(p.Color("#87D7AF"))
+			} else {
+				s = s.Foreground(p.Color("#FFFFFF"))
+			}
+			final.WriteString(s.String())
 			buf.Reset()
 		}
 	}
@@ -553,7 +552,6 @@ func (m model) styleGameText(text string, width int) string {
 		if i+1 < len(text) && text[i] == '*' && text[i+1] == '*' {
 			flush()
 			inBold = !inBold
-			lastStyle = getStyle(inBold, inQuote)
 			i++ // Skip second asterisk
 			continue
 		}
@@ -564,14 +562,12 @@ func (m model) styleGameText(text string, width int) string {
 				// Starting a quote
 				flush()
 				inQuote = true
-				lastStyle = getStyle(inBold, true)
 				buf.WriteByte('"')
 			} else {
 				// Ending a quote
 				buf.WriteByte('"')
 				flush()
 				inQuote = false
-				lastStyle = getStyle(inBold, false)
 			}
 			continue
 		}
@@ -581,7 +577,7 @@ func (m model) styleGameText(text string, width int) string {
 	flush()
 
 	// Wrap the fully styled text
-	return lipgloss.NewStyle().MaxWidth(width).Render(final.String())
+	return lipgloss.NewStyle().Width(width).Render(final.String())
 }
 
 func (m model) generateWorld(hint string) tea.Cmd {
