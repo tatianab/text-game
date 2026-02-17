@@ -16,7 +16,11 @@ type Config struct {
 func LoadConfig() (*Config, error) {
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
-		return nil, fmt.Errorf("GEMINI_API_KEY environment variable is not set")
+		return nil, fmt.Errorf("GEMINI_API_KEY environment variable is not set.\n\n" +
+			"To play this game, you need a Google Gemini API key.\n" +
+			"1. Get a free key at https://aistudio.google.com/app/apikey\n" +
+			"2. Set it in your terminal: export GEMINI_API_KEY='your-key-here'\n" +
+			"3. Run the game again.")
 	}
 
 	saveDir := os.Getenv("TEXT_GAME_SAVE_DIR")
