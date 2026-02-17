@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/tatianab/text-game/internal/config"
 	"github.com/tatianab/text-game/internal/engine"
 	"github.com/tatianab/text-game/internal/models"
 )
@@ -598,6 +599,25 @@ func (m model) processTurn(action string) tea.Cmd {
 		outcome, err := m.engine.ProcessTurn(context.Background(), m.session, action)
 		return turnProcessedMsg{outcome, err}
 	}
+}
+
+func Start() error {
+	ctx := context.Background()
+
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return err
+	}
+
+	models.SaveDir = cfg.SaveDir
+
+	eng, err := engine.NewEngine(ctx, cfg.GeminiAPIKey)
+	if err != nil {
+		return err
+	}
+	defer eng.Close()
+
+	return Run(eng)
 }
 
 func Run(eng *engine.Engine) error {
